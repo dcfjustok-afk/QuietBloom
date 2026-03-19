@@ -1,9 +1,9 @@
 ---
 phase: 01
 slug: reminder-foundation
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: ready
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-19
 ---
 
@@ -38,12 +38,16 @@ created: 2026-03-19
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 01-01-01 | 01 | 1 | REMD-01, EXPR-03 | Rust repository unit | `cargo test reminder_repository::tests::create_and_list_multiple` | ❌ W0 | ⬜ pending |
-| 01-01-02 | 01 | 1 | SCHD-01, SCHD-02, REMD-03 | Rust domain unit | `cargo test domain::schedule::tests::computes_next_due` | ❌ W0 | ⬜ pending |
-| 01-02-01 | 02 | 2 | REMD-01, REMD-02, REMD-03 | React component test | `pnpm vitest run src/features/reminders/components/ReminderDrawer.test.tsx -t "creates reminder"` | ❌ W0 | ⬜ pending |
-| 01-02-02 | 02 | 2 | REMD-02 | React component test | `pnpm vitest run src/features/reminders/components/ReminderRow.test.tsx -t "edits toggles deletes"` | ❌ W0 | ⬜ pending |
-| 01-03-01 | 03 | 3 | SCHD-01, SCHD-02 | Schema validation test | `pnpm vitest run src/features/reminders/form/reminder-form-schema.test.ts` | ❌ W0 | ⬜ pending |
-| 01-03-02 | 03 | 3 | REMD-03 | React component test | `pnpm vitest run src/features/reminders/components/NextReminderCard.test.tsx` | ❌ W0 | ⬜ pending |
+| 01-01-01 | 01 | 1 | REMD-01, EXPR-03 | Frontend smoke | `pnpm vitest run src/test/smoke.test.ts` | ❌ W0 | ⬜ pending |
+| 01-01-02 | 01 | 1 | REMD-01, REMD-03, EXPR-03 | Rust repository unit | `cd src-tauri && cargo test persistence::reminders::tests::persists_and_reloads && cargo test reminder_repository` | ❌ W0 | ⬜ pending |
+| 01-02-01 | 02 | 2 | SCHD-01, SCHD-02 | Schema validation test | `pnpm vitest run src/features/reminders/form/reminder-form-schema.test.ts` | ❌ W0 | ⬜ pending |
+| 01-02-02 | 02 | 2 | REMD-01, REMD-03 | Build/type integration | `pnpm build` | ❌ W0 | ⬜ pending |
+| 01-03-01 | 03 | 3 | REMD-03 | Build/type integration | `pnpm build` | ❌ W0 | ⬜ pending |
+| 01-03-02 | 03 | 3 | REMD-01, REMD-02 | React component test | `pnpm vitest run src/features/reminders/components/ReminderDrawer.test.tsx -t "creates reminder"` | ❌ W0 | ⬜ pending |
+| 01-03-03 | 03 | 3 | REMD-02, REMD-03 | React component test | `pnpm vitest run src/features/reminders/components/ReminderRow.test.tsx -t "edits toggles deletes"` | ❌ W0 | ⬜ pending |
+| 01-04-01 | 04 | 4 | REMD-03 | Rust domain unit | `cd src-tauri && cargo test computes_next_due` | ❌ W0 | ⬜ pending |
+| 01-04-02 | 04 | 4 | SCHD-01, SCHD-02 | Schema validation test | `pnpm vitest run src/features/reminders/form/reminder-form-schema.test.ts` | ❌ W0 | ⬜ pending |
+| 01-04-03 | 04 | 4 | REMD-03 | React component test | `pnpm vitest run src/features/reminders/components/NextReminderCard.test.tsx` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -53,6 +57,8 @@ created: 2026-03-19
 
 - [ ] `vite.config.ts` — add Vitest `test` section and test environment setup
 - [ ] `package.json` — add `test` script for Vitest
+- [ ] `src/test/smoke.test.ts` — frontend test harness smoke coverage
+- [ ] `src/test/setup.ts` — shared test setup for jsdom and Testing Library
 - [ ] `src/features/reminders/form/reminder-form-schema.test.ts` — interval and fixed-time schema coverage
 - [ ] `src/features/reminders/components/ReminderDrawer.test.tsx` — create, edit, and unsaved-change coverage
 - [ ] `src/features/reminders/components/ReminderRow.test.tsx` — toggle and delete row interaction coverage
