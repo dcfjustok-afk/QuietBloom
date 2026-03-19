@@ -2,16 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_plan: 2
 status: executing
-stopped_at: Phase 1 planning complete
-last_updated: "2026-03-19T09:43:31.980Z"
-last_activity: 2026-03-19 — Phase 1 plans finalized across 4 executable plans
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-03-19T15:20:12.093Z"
+last_activity: 2026-03-19 — 01-01 completed with native reminder persistence and command registration
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -26,30 +27,31 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 1 of 4 (Reminder Foundation)
-Plan: 0 of 4 in current phase
+Current Plan: 2
+Total Plans in Phase: 4
 Status: Ready to execute
-Last activity: 2026-03-19 — Phase 1 plans finalized across 4 executable plans
+Last Activity: 2026-03-19 — 01-01 completed; ready for 01-02 typed contracts and wrappers
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: 0 min
-- Total execution time: 0.0 hours
+- Total plans completed: 1
+- Average duration: 11 min
+- Total execution time: 0.2 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 0 | 0 min | - |
+| 1 | 1 | 11 min | 11 min |
 | 2 | 0 | 0 min | - |
 | 3 | 0 | 0 min | - |
 | 4 | 0 | 0 min | - |
 
 **Recent Trend:**
-- Last 5 plans: none
+- Last 5 plans: 11min
 - Trend: Stable
 
 ## Accumulated Context
@@ -62,6 +64,8 @@ Recent decisions affecting current work:
 - Phase 0: Keep v1 local-first and defer accounts or cloud sync
 - Phase 0: Treat flexible scheduling and reminder trust as the core product bet
 - Phase 0: Keep AI outside the first release until the reminder loop is proven
+- [Phase 1]: Rust owns reminder validation and next_due_at recomputation — Keeps the frontend invoke layer thin while persistence remains the single source of truth.
+- [Phase 1]: schedule_json is the sole persisted schedule payload — Preserves a narrow schema while interval and fixed_time authoring evolve in later plans.
 
 ### Pending Todos
 
@@ -74,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T09:43:31.972Z
-Stopped at: Phase 1 planning complete
-Resume file: .planning/phases/01-reminder-foundation/01-01-PLAN.md
+Last session: 2026-03-19T15:20:12.090Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: .planning/phases/01-reminder-foundation/01-02-PLAN.md

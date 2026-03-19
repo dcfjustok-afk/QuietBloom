@@ -7,9 +7,9 @@
 
 ### Reminder Management
 
-- [ ] **REMD-01**: User can create multiple reminder items with a title, short instruction, and enabled state
+- [x] **REMD-01**: User can create multiple reminder items with a title, short instruction, and enabled state
 - [ ] **REMD-02**: User can edit, enable or disable, and delete an existing reminder item
-- [ ] **REMD-03**: User can view each reminder's next due time and current state from the main app surface
+- [x] **REMD-03**: User can view each reminder's next due time and current state from the main app surface
 
 ### Scheduling
 
@@ -31,7 +31,7 @@
 - [ ] **HIST-01**: User can review recent reminder outcomes including completed, snoozed, skipped, missed, and fired events
 - [ ] **EXPR-01**: User can create or edit a reminder through a polished desktop form with simple defaults first and advanced options second
 - [ ] **EXPR-02**: User can configure app-wide settings such as default snooze duration and launch-at-login behavior
-- [ ] **EXPR-03**: User's reminders and app settings persist locally across app restarts without needing an account
+- [x] **EXPR-03**: User's reminders and app settings persist locally across app restarts without needing an account
 
 ## v2 Requirements
 
@@ -61,12 +61,12 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REMD-01 | Phase 1 | Pending |
+| REMD-01 | Phase 1 | Complete |
 | REMD-02 | Phase 1 | Pending |
-| REMD-03 | Phase 1 | Pending |
+| REMD-03 | Phase 1 | Complete |
 | SCHD-01 | Phase 1 | Pending |
 | SCHD-02 | Phase 1 | Pending |
-| EXPR-03 | Phase 1 | Pending |
+| EXPR-03 | Phase 1 | Complete |
 | SCHD-03 | Phase 2 | Pending |
 | SCHD-04 | Phase 2 | Pending |
 | DELV-04 | Phase 2 | Pending |
@@ -85,4 +85,4 @@
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-19 after initial definition*
+*Last updated: 2026-03-19 after 01-01 completion*
