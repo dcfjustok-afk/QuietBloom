@@ -1,0 +1,375 @@
+use std::cmp::Ordering;
+use std::fs;
+use std::path::PathBuf;
+
+use chrono::{DateTime, Utc};
+use rusqlite::{params, Connection, OptionalExtension};
+use tauri::Manager;
+
+use crate::domain::reminder::{Reminder, ReminderDraft};
+
+const CREATE_REMINDERS_TABLE: &str = r#"
+CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    schedule_kind TEXT NOT NULL,
+    schedule_json TEXT NOT NULL,
+    next_due_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+)
+"#;
+
+const CREATE_REMINDERS_INDEX: &str = r#"
+CREATE INDEX IF NOT EXISTS idx_reminders_enabled_next_due_at
+ON reminders (enabled, next_due_at)
+"#;
+
+#[derive(Debug, Clone)]
+pub struct ReminderRepository {
+    db_path: PathBuf,
+}
+
+impl ReminderRepository {
+    pub fn for_app(app: &tauri::AppHandle) -> Result<Self, String> {
+        let mut data_dir = app
+            .path()
+            .app_data_dir()
+            .map_err(|error| error.to_string())?;
+        data_dir.push("quietbloom.db");
+        Self::new(data_dir)
+    }
+
+    pub fn new<P: Into<PathBuf>>(db_path: P) -> Result<Self, String> {
+        let repository = Self {
+            db_path: db_path.into(),
+        };
+        repository.initialize()?;
+        Ok(repository)
+    }
+
+    pub fn list(&self) -> Result<Vec<Reminder>, String> {
+        let conn = self.open_connection()?;
+        let mut statement = conn
+            .prepare(
+                "SELECT id, type, title, description, enabled, schedule_kind, schedule_json, next_due_at, created_at, updated_at FROM reminders",
+            )
+            .map_err(|error| error.to_string())?;
+        let rows = statement
+            .query_map([], |row| self.map_row(row))
+            .map_err(|error| error.to_string())?;
+
+        let mut reminders = Vec::new();
+        for row in rows {
+            let mut reminder = row.map_err(|error| error.to_string())?;
+            self.refresh_next_due(&conn, &mut reminder)?;
+            reminders.push(reminder);
+        }
+
+        reminders.sort_by(compare_reminders);
+        Ok(reminders)
+    }
+
+    pub fn save(&self, draft: ReminderDraft) -> Result<Reminder, String> {
+        let draft = draft.normalized()?;
+        let now = Utc::now();
+        let schedule_json = serde_json::to_string(&draft.schedule).map_err(|error| error.to_string())?;
+        let next_due_at = if draft.enabled() {
+            Some(draft.schedule.compute_next_due(now)?)
+        } else {
+            None
+        };
+
+        let mut conn = self.open_connection()?;
+        let tx = conn.transaction().map_err(|error| error.to_string())?;
+
+        let reminder_id = if let Some(id) = draft.id {
+            let created_at = tx
+                .query_row(
+                    "SELECT created_at FROM reminders WHERE id = ?1",
+                    [id],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()
+                .map_err(|error| error.to_string())?
+                .ok_or_else(|| format!("reminder {} not found", id))?;
+
+            tx.execute(
+                "UPDATE reminders SET type = ?1, title = ?2, description = ?3, enabled = ?4, schedule_kind = ?5, schedule_json = ?6, next_due_at = ?7, created_at = ?8, updated_at = ?9 WHERE id = ?10",
+                params![
+                    draft.reminder_type,
+                    draft.title,
+                    draft.description,
+                    bool_to_int(draft.enabled()),
+                    draft.schedule.kind(),
+                    schedule_json,
+                    next_due_at.map(|value| value.to_rfc3339()),
+                    created_at,
+                    now.to_rfc3339(),
+                    id,
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+
+            id
+        } else {
+            tx.execute(
+                "INSERT INTO reminders (type, title, description, enabled, schedule_kind, schedule_json, next_due_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    draft.reminder_type,
+                    draft.title,
+                    draft.description,
+                    bool_to_int(draft.enabled()),
+                    draft.schedule.kind(),
+                    schedule_json,
+                    next_due_at.map(|value| value.to_rfc3339()),
+                    now.to_rfc3339(),
+                    now.to_rfc3339(),
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+
+            tx.last_insert_rowid()
+        };
+
+        tx.commit().map_err(|error| error.to_string())?;
+        self.get(reminder_id)
+    }
+
+    pub fn delete(&self, id: i64) -> Result<(), String> {
+        let conn = self.open_connection()?;
+        let affected = conn
+            .execute("DELETE FROM reminders WHERE id = ?1", [id])
+            .map_err(|error| error.to_string())?;
+
+        if affected == 0 {
+            return Err(format!("reminder {} not found", id));
+        }
+
+        Ok(())
+    }
+
+    pub fn set_enabled(&self, id: i64, enabled: bool) -> Result<Reminder, String> {
+        let mut reminder = self.get(id)?;
+        reminder.enabled = enabled;
+        reminder.updated_at = Utc::now();
+        reminder.next_due_at = if enabled {
+            Some(reminder.schedule.compute_next_due(reminder.updated_at)?)
+        } else {
+            None
+        };
+
+        let conn = self.open_connection()?;
+        let affected = conn
+            .execute(
+                "UPDATE reminders SET enabled = ?1, next_due_at = ?2, updated_at = ?3 WHERE id = ?4",
+                params![
+                    bool_to_int(enabled),
+                    reminder.next_due_at.map(|value| value.to_rfc3339()),
+                    reminder.updated_at.to_rfc3339(),
+                    id,
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+
+        if affected == 0 {
+            return Err(format!("reminder {} not found", id));
+        }
+
+        self.get(id)
+    }
+
+    fn initialize(&self) -> Result<(), String> {
+        if let Some(parent) = self.db_path.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+
+        let conn = self.open_connection()?;
+        conn.execute_batch(CREATE_REMINDERS_TABLE)
+            .map_err(|error| error.to_string())?;
+        conn.execute_batch(CREATE_REMINDERS_INDEX)
+            .map_err(|error| error.to_string())?;
+        Ok(())
+    }
+
+    fn open_connection(&self) -> Result<Connection, String> {
+        Connection::open(&self.db_path).map_err(|error| error.to_string())
+    }
+
+    fn get(&self, id: i64) -> Result<Reminder, String> {
+        let conn = self.open_connection()?;
+        let mut reminder = self.get_with_conn(&conn, id)?;
+        self.refresh_next_due(&conn, &mut reminder)?;
+        Ok(reminder)
+    }
+
+    fn get_with_conn(&self, conn: &Connection, id: i64) -> Result<Reminder, String> {
+        conn.query_row(
+            "SELECT id, type, title, description, enabled, schedule_kind, schedule_json, next_due_at, created_at, updated_at FROM reminders WHERE id = ?1",
+            [id],
+            |row| self.map_row(row),
+        )
+        .map_err(|error| error.to_string())
+    }
+
+    fn refresh_next_due(&self, conn: &Connection, reminder: &mut Reminder) -> Result<(), String> {
+        let expected = if reminder.enabled {
+            Some(reminder.schedule.compute_next_due(Utc::now())?)
+        } else {
+            None
+        };
+
+        if reminder.next_due_at != expected {
+            let updated_at = Utc::now();
+            conn.execute(
+                "UPDATE reminders SET next_due_at = ?1, updated_at = ?2 WHERE id = ?3",
+                params![
+                    expected.map(|value| value.to_rfc3339()),
+                    updated_at.to_rfc3339(),
+                    reminder.id,
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+            reminder.next_due_at = expected;
+            reminder.updated_at = updated_at;
+        }
+
+        Ok(())
+    }
+
+    fn map_row(&self, row: &rusqlite::Row<'_>) -> rusqlite::Result<Reminder> {
+        let schedule_json: String = row.get(6)?;
+        let next_due_at: Option<String> = row.get(7)?;
+        let created_at: String = row.get(8)?;
+        let updated_at: String = row.get(9)?;
+
+        Ok(Reminder {
+            id: row.get(0)?,
+            reminder_type: row.get(1)?,
+            title: row.get(2)?,
+            description: row.get(3)?,
+            enabled: row.get::<_, i64>(4)? != 0,
+            schedule: serde_json::from_str(&schedule_json).map_err(json_error)?,
+            next_due_at: next_due_at
+                .map(|value| parse_datetime(&value))
+                .transpose()
+                .map_err(json_error)?,
+            created_at: parse_datetime(&created_at).map_err(json_error)?,
+            updated_at: parse_datetime(&updated_at).map_err(json_error)?,
+        })
+    }
+}
+
+fn parse_datetime(value: &str) -> Result<DateTime<Utc>, chrono::ParseError> {
+    DateTime::parse_from_rfc3339(value).map(|date| date.with_timezone(&Utc))
+}
+
+fn json_error<E>(error: E) -> rusqlite::Error
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    rusqlite::Error::FromSqlConversionFailure(
+        0,
+        rusqlite::types::Type::Text,
+        Box::new(error),
+    )
+}
+
+fn bool_to_int(value: bool) -> i64 {
+    if value { 1 } else { 0 }
+}
+
+fn compare_reminders(left: &Reminder, right: &Reminder) -> Ordering {
+    (!left.enabled)
+        .cmp(&!right.enabled)
+        .then_with(|| left.next_due_at.is_none().cmp(&right.next_due_at.is_none()))
+        .then_with(|| left.next_due_at.cmp(&right.next_due_at))
+        .then_with(|| left.id.cmp(&right.id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ReminderRepository;
+    use crate::domain::reminder::ReminderDraft;
+    use crate::domain::schedule::{IntervalSchedule, Schedule};
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn persists_and_reloads() {
+        let path = temp_db_path("persists_and_reloads");
+        let created = {
+            let repository = ReminderRepository::new(path.clone()).unwrap();
+            repository.save(sample_reminder(None)).unwrap()
+        };
+
+        let repository = ReminderRepository::new(path.clone()).unwrap();
+        let reminders = repository.list().unwrap();
+
+        assert_eq!(reminders.len(), 1);
+        assert_eq!(reminders[0].id, created.id);
+        assert_eq!(reminders[0].title, created.title);
+        assert_eq!(reminders[0].next_due_at, created.next_due_at);
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn reminder_repository_crud_and_toggle() {
+        let path = temp_db_path("reminder_repository_crud_and_toggle");
+        let repository = ReminderRepository::new(path.clone()).unwrap();
+
+        let created = repository.save(sample_reminder(None)).unwrap();
+        assert!(created.next_due_at.is_some());
+
+        let updated = repository
+            .save(ReminderDraft {
+                id: Some(created.id),
+                title: "Stand and breathe".to_string(),
+                ..sample_reminder(Some(created.id))
+            })
+            .unwrap();
+        assert_eq!(updated.title, "Stand and breathe");
+
+        let disabled = repository.set_enabled(created.id, false).unwrap();
+        assert!(!disabled.enabled);
+        assert!(disabled.next_due_at.is_none());
+
+        let reminders = repository.list().unwrap();
+        assert_eq!(reminders.len(), 1);
+        assert_eq!(reminders[0].id, created.id);
+        assert!(!reminders[0].enabled);
+
+        repository.delete(created.id).unwrap();
+        assert!(repository.list().unwrap().is_empty());
+
+        let _ = fs::remove_file(path);
+    }
+
+    fn sample_reminder(id: Option<i64>) -> ReminderDraft {
+        ReminderDraft {
+            id,
+            reminder_type: "standing".to_string(),
+            title: "Stand up".to_string(),
+            description: Some("Shake out your shoulders".to_string()),
+            enabled: Some(true),
+            schedule: Schedule::Interval(IntervalSchedule {
+                every_minutes: 120,
+                anchor_minute_of_day: 0,
+            }),
+        }
+    }
+
+    fn temp_db_path(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        env::temp_dir().join(format!("quietbloom-{name}-{unique}.db"))
+    }
+}
