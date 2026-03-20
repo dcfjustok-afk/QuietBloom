@@ -63,21 +63,34 @@ impl IntervalSchedule {
     fn compute_next_due(&self, now: DateTime<Utc>) -> Result<DateTime<Utc>, String> {
         let every_minutes = i64::from(self.every_minutes);
         let now_local = now.with_timezone(&Local);
-        let midnight = now_local
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .ok_or_else(|| "failed to derive local midnight".to_string())?;
-        let anchored = midnight + Duration::minutes(i64::from(self.anchor_minute_of_day));
-        let mut candidate = resolve_local_datetime(anchored)?;
+        let mut day_offset = 0_i64;
 
-        if candidate <= now_local {
-            let elapsed = now_local.signed_duration_since(candidate).num_minutes();
-            let steps = elapsed.div_euclid(every_minutes) + 1;
-            let next = candidate.naive_local() + Duration::minutes(steps * every_minutes);
-            candidate = resolve_local_datetime(next)?;
+        loop {
+            let date = now_local.date_naive() + Duration::days(day_offset);
+            let midnight = date
+                .and_hms_opt(0, 0, 0)
+                .ok_or_else(|| "failed to derive local midnight".to_string())?;
+            let anchored = midnight + Duration::minutes(i64::from(self.anchor_minute_of_day));
+            let candidate = resolve_local_datetime(anchored)?;
+
+            if day_offset == 0 {
+                if candidate > now_local {
+                    return Ok(candidate.with_timezone(&Utc));
+                }
+
+                let elapsed = now_local.signed_duration_since(candidate).num_minutes();
+                let steps = elapsed.div_euclid(every_minutes) + 1;
+                let next = candidate.naive_local() + Duration::minutes(steps * every_minutes);
+                let next_candidate = resolve_local_datetime(next)?;
+                if next_candidate.date_naive() == date {
+                    return Ok(next_candidate.with_timezone(&Utc));
+                }
+            } else {
+                return Ok(candidate.with_timezone(&Utc));
+            }
+
+            day_offset += 1;
         }
-
-        Ok(candidate.with_timezone(&Utc))
     }
 }
 
@@ -118,7 +131,7 @@ impl FixedTimeSchedule {
         parsed_times.sort_unstable();
         parsed_times.dedup();
 
-        for day_offset in 0..8_i64 {
+        for day_offset in 0..14_i64 {
             let date = now_local.date_naive() + Duration::days(day_offset);
             let weekday = date.weekday().number_from_monday() as u8;
             if !weekdays.contains(&weekday) {
@@ -179,7 +192,13 @@ fn parse_time(value: &str) -> Result<(u32, u32), String> {
 #[cfg(test)]
 mod tests {
     use super::{FixedTimeSchedule, IntervalSchedule, Schedule};
-    use chrono::{Duration, Utc};
+    use chrono::{Datelike, NaiveDate, Utc};
+
+    fn local_utc(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> chrono::DateTime<Utc> {
+        let date = NaiveDate::from_ymd_opt(year, month, day).unwrap();
+        let local = super::build_local_candidate(date, hour, minute).unwrap();
+        local.with_timezone(&Utc)
+    }
 
     #[test]
     fn rejects_invalid_interval_bounds() {
@@ -202,14 +221,61 @@ mod tests {
     }
 
     #[test]
-    fn computes_future_interval_due() {
+    fn computes_next_due_for_interval_same_day_slot() {
         let schedule = Schedule::Interval(IntervalSchedule {
-            every_minutes: 120,
-            anchor_minute_of_day: 0,
+            every_minutes: 30,
+            anchor_minute_of_day: 540,
         });
 
-        let due = schedule.compute_next_due(Utc::now()).unwrap();
+        let now = local_utc(2026, 3, 20, 9, 10);
+        let due = schedule.compute_next_due(now).unwrap();
+        let expected = local_utc(2026, 3, 20, 9, 30);
 
-        assert!(due > Utc::now() - Duration::seconds(1));
+        assert_eq!(due, expected);
+    }
+
+    #[test]
+    fn computes_next_due_for_interval_next_day_rollover() {
+        let schedule = Schedule::Interval(IntervalSchedule {
+            every_minutes: 120,
+            anchor_minute_of_day: 1320,
+        });
+
+        let now = local_utc(2026, 3, 20, 23, 30);
+        let due = schedule.compute_next_due(now).unwrap();
+        let expected = local_utc(2026, 3, 21, 22, 0);
+
+        assert_eq!(due, expected);
+    }
+
+    #[test]
+    fn computes_next_due_for_fixed_time_future_weekday() {
+        let monday = NaiveDate::from_ymd_opt(2026, 3, 23).unwrap();
+        assert_eq!(monday.weekday().number_from_monday(), 1);
+
+        let schedule = Schedule::FixedTime(FixedTimeSchedule {
+            weekdays: vec![1, 3, 5],
+            times: vec!["10:30".to_string(), "15:00".to_string()],
+        });
+
+        let now = local_utc(2026, 3, 23, 10, 45);
+        let due = schedule.compute_next_due(now).unwrap();
+        let expected = local_utc(2026, 3, 23, 15, 0);
+
+        assert_eq!(due, expected);
+    }
+
+    #[test]
+    fn computes_next_due_for_fixed_time_next_matching_day() {
+        let schedule = Schedule::FixedTime(FixedTimeSchedule {
+            weekdays: vec![2],
+            times: vec!["10:30".to_string()],
+        });
+
+        let now = local_utc(2026, 3, 23, 16, 0);
+        let due = schedule.compute_next_due(now).unwrap();
+        let expected = local_utc(2026, 3, 24, 10, 30);
+
+        assert_eq!(due, expected);
     }
 }
