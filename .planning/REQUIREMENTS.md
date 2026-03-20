@@ -13,8 +13,8 @@
 
 ### Scheduling
 
-- [ ] **SCHD-01**: User can configure an interval-based reminder that repeats after a chosen duration
-- [ ] **SCHD-02**: User can configure a fixed-time reminder that repeats on selected weekdays at chosen times
+- [x] **SCHD-01**: User can configure an interval-based reminder that repeats after a chosen duration
+- [x] **SCHD-02**: User can configure a fixed-time reminder that repeats on selected weekdays at chosen times
 - [ ] **SCHD-03**: User can define an active window or quiet-hours rule so reminders only fire during intended parts of the day
 - [ ] **SCHD-04**: User can temporarily pause all reminders for a preset duration and have them resume automatically
 
@@ -64,8 +64,8 @@
 | REMD-01 | Phase 1 | Complete |
 | REMD-02 | Phase 1 | Pending |
 | REMD-03 | Phase 1 | Complete |
-| SCHD-01 | Phase 1 | Pending |
-| SCHD-02 | Phase 1 | Pending |
+| SCHD-01 | Phase 1 | Complete |
+| SCHD-02 | Phase 1 | Complete |
 | EXPR-03 | Phase 1 | Complete |
 | SCHD-03 | Phase 2 | Pending |
 | SCHD-04 | Phase 2 | Pending |
@@ -85,4 +85,4 @@
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-19 after 01-01 completion*
+*Last updated: 2026-03-20 after 01-02 completion*

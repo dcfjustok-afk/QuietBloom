@@ -30,7 +30,7 @@ QuietBloom v1 should ship as a local-first desktop reminder tool that users can 
 
 Plans:
 - [x] 01-01: Add Wave 0 test harness and native reminder persistence foundation
-- [ ] 01-02: Mirror reminder contracts and typed API wrappers in TypeScript
+- [x] 01-02: Mirror reminder contracts and typed API wrappers in TypeScript
 - [ ] 01-03: Build dashboard-first CRUD shell and right-side drawer flows
 - [ ] 01-04: Add preset-first schedule editor and persisted next-due presentation
 
@@ -87,7 +87,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Reminder Foundation | 1/4 | In Progress | - |
+| 1. Reminder Foundation | 2/4 | In Progress | - |
 | 2. Scheduling Engine | 0/3 | Not started | - |
 | 3. Native Delivery | 0/3 | Not started | - |
 | 4. Daily Experience | 0/2 | Not started | - |
