@@ -280,6 +280,12 @@ button {
   line-height: 1;
 }
 
+.next-reminder-card__schedule {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 1rem;
+}
+
 .next-reminder-card__meta {
   margin: 8px 0 0;
   color: var(--text-body);
@@ -514,6 +520,122 @@ button {
   background: rgba(106, 132, 114, 0.18);
 }
 
+.schedule-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.schedule-mode-switch__option {
+  min-height: 48px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-strong);
+}
+
+.schedule-mode-switch__option--selected {
+  border-color: rgba(106, 132, 114, 0.6);
+  background: rgba(106, 132, 114, 0.2);
+  color: var(--accent-strong);
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.preset-chip {
+  min-height: 54px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--text-strong);
+  text-align: left;
+}
+
+.preset-chip--selected {
+  border-color: rgba(106, 132, 114, 0.62);
+  background: rgba(106, 132, 114, 0.18);
+  color: var(--accent-strong);
+}
+
+.advanced-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.advanced-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.advanced-panel__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.advanced-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.advanced-grid--interval {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-stack--wide {
+  grid-column: 1 / -1;
+}
+
+.weekday-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.weekday-chip {
+  min-height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-body);
+}
+
+.weekday-chip--selected {
+  border-color: rgba(106, 132, 114, 0.6);
+  background: rgba(106, 132, 114, 0.2);
+  color: var(--accent-strong);
+}
+
+.time-input-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.time-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
 .text-input,
 .text-area {
   width: 100%;
@@ -638,5 +760,12 @@ button {
 
   .drawer-panel {
     width: 100vw;
+  }
+
+  .preset-grid,
+  .advanced-grid--interval,
+  .weekday-grid,
+  .time-input-row {
+    grid-template-columns: 1fr;
   }
 }

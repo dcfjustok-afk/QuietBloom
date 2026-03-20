@@ -2,6 +2,11 @@ import { format, formatDistanceToNowStrict, isToday, isTomorrow, parseISO } from
 
 import { describeReminderSchedule, type ReminderSummary, type ReminderType } from "../model/reminder";
 
+type NextDuePresentation = {
+  title: string;
+  detail: string;
+};
+
 export function sortReminders(reminders: ReminderSummary[]): ReminderSummary[] {
   return [...reminders].sort((left, right) => {
     if (left.enabled !== right.enabled) {
@@ -19,14 +24,7 @@ export function sortReminders(reminders: ReminderSummary[]): ReminderSummary[] {
   });
 }
 
-export function formatNextDue(nextDueAt: string | null): { title: string; detail: string } {
-  if (!nextDueAt) {
-    return {
-      title: "No active reminder",
-      detail: "Create a reminder or re-enable one to put the next rhythm back in view.",
-    };
-  }
-
+function formatUpcomingDate(nextDueAt: string): NextDuePresentation {
   const date = parseISO(nextDueAt);
   const distance = formatDistanceToNowStrict(date, { addSuffix: true });
 
@@ -48,6 +46,28 @@ export function formatNextDue(nextDueAt: string | null): { title: string; detail
     title: format(date, "EEE HH:mm"),
     detail: distance,
   };
+}
+
+export function formatHeroNextDue(nextDueAt: string | null): NextDuePresentation {
+  if (!nextDueAt) {
+    return {
+      title: "No active reminder",
+      detail: "Create a reminder or re-enable one to put the next rhythm back in view.",
+    };
+  }
+
+  return formatUpcomingDate(nextDueAt);
+}
+
+export function formatReminderNextDue(reminder: Pick<ReminderSummary, "enabled" | "nextDueAt">): NextDuePresentation {
+  if (!reminder.nextDueAt) {
+    return {
+      title: "No upcoming time",
+      detail: reminder.enabled ? "Waiting for the next occurrence." : "Disabled for now",
+    };
+  }
+
+  return formatUpcomingDate(reminder.nextDueAt);
 }
 
 export function countDueToday(reminders: ReminderSummary[]): number {

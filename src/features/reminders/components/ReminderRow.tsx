@@ -36,8 +36,9 @@ export function ReminderRow({
       </div>
 
       <div className="reminder-row__meta">
-        <span className="reminder-row__meta-label">Timing</span>
+        <span className="reminder-row__meta-label">Schedule</span>
         <span>{reminder.scheduleSummary}</span>
+        <span className="reminder-row__meta-label">Next due</span>
         <span>
           {nextDueTitle} · {nextDueDetail}
         </span>

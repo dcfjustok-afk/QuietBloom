@@ -51,6 +51,11 @@ export function NextReminderCard({ reminder, title, detail, onEdit }: NextRemind
       <p className="next-reminder-card__description">{reminder.description ?? "A gentle prompt ready to support the next part of your day."}</p>
 
       <div className="next-reminder-card__timing">
+        <span className="next-reminder-card__label">Rhythm</span>
+        <p className="next-reminder-card__schedule">{reminder.scheduleSummary}</p>
+      </div>
+
+      <div className="next-reminder-card__timing">
         <span className="next-reminder-card__label">Next due</span>
         <p className="next-reminder-card__time">{title}</p>
         <p className="next-reminder-card__meta">{detail}</p>

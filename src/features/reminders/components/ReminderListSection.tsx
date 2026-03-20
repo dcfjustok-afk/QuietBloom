@@ -1,4 +1,4 @@
-import { formatNextDue } from "../utils/reminder-display";
+import { formatReminderNextDue } from "../utils/reminder-display";
 import { ReminderRow } from "./ReminderRow";
 import type { ReminderSummary } from "../model/reminder";
 
@@ -36,7 +36,7 @@ export function ReminderListSection({
       ) : (
         <div className="reminder-list">
           {reminders.map((reminder) => {
-            const nextDue = formatNextDue(reminder.nextDueAt);
+            const nextDue = formatReminderNextDue(reminder);
             return (
               <ReminderRow
                 key={reminder.id}

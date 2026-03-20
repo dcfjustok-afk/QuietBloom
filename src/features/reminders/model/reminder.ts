@@ -22,6 +22,28 @@ export type FixedTimeSchedule = {
 
 export type ReminderSchedule = IntervalSchedule | FixedTimeSchedule;
 
+export function createIntervalSchedule(
+  everyMinutes: number,
+  anchorMinuteOfDay: number,
+): IntervalSchedule {
+  return {
+    kind: "interval",
+    everyMinutes,
+    anchorMinuteOfDay,
+  };
+}
+
+export function createFixedTimeSchedule(
+  weekdays: number[],
+  times: number[],
+): FixedTimeSchedule {
+  return {
+    kind: "fixed_time",
+    weekdays,
+    times,
+  };
+}
+
 export type ReminderSummary = {
   id: number;
   type: ReminderType;
@@ -42,11 +64,11 @@ export type SaveReminderInput = {
   schedule: ReminderSchedule;
 };
 
-export const defaultReminderSchedule: ReminderSchedule = {
-  kind: "interval",
-  everyMinutes: 60,
-  anchorMinuteOfDay: 540,
-};
+export const defaultReminderSchedule: ReminderSchedule = createIntervalSchedule(60, 540);
+export const defaultFixedTimeSchedule: FixedTimeSchedule = createFixedTimeSchedule(
+  [1, 2, 3, 4, 5],
+  [630],
+);
 
 const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 

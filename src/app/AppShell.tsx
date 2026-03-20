@@ -13,7 +13,7 @@ import { TodayOverviewCard } from "../features/reminders/components/TodayOvervie
 import type { ReminderSummary, SaveReminderInput } from "../features/reminders/model/reminder";
 import {
   countDueToday,
-  formatNextDue,
+  formatHeroNextDue,
   sortReminders,
   summarizeScheduleMix,
 } from "../features/reminders/utils/reminder-display";
@@ -76,8 +76,8 @@ export function AppShell() {
     await refreshReminders();
   }
 
-  const nextReminder = reminders.find((reminder) => reminder.enabled) ?? null;
-  const nextDue = formatNextDue(nextReminder?.nextDueAt ?? null);
+  const nextReminder = reminders.find((reminder) => reminder.enabled && reminder.nextDueAt) ?? null;
+  const nextDue = formatHeroNextDue(nextReminder?.nextDueAt ?? null);
   const enabledCount = reminders.filter((reminder) => reminder.enabled).length;
   const dueTodayCount = countDueToday(reminders.filter((reminder) => reminder.enabled));
   const scheduleMix = summarizeScheduleMix(reminders);
