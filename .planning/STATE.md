@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 4
-status: completed
-stopped_at: Completed 01-04-PLAN.md
-last_updated: "2026-03-20T08:03:33Z"
-last_activity: 2026-03-20 — Phase 1 completed with full schedule authoring, Rust next-due computation, and persisted dashboard presentation
+current_plan: 1
+status: executing
+stopped_at: Planned 02-01-PLAN.md
+last_updated: "2026-03-20T09:55:39Z"
+last_activity: 2026-03-20 — Phase 2 planning completed with context, UI contract, research, validation, and three executable plans
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_plans: 3
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -22,17 +22,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Users can set up and trust beautiful, low-friction reminders that fit their work rhythm.
-**Current focus:** Phase 2 - Scheduling Engine (not started)
+**Current focus:** Phase 2 - Scheduling Engine
 
 ## Current Position
 
-Phase: 1 of 4 (Reminder Foundation)
-Current Plan: Complete (4 of 4)
-Total Plans in Phase: 4
-Status: Completed
-Last Activity: 2026-03-20 — Phase 1 completed; ready for Phase 2 planning and execution
+Phase: 2 of 4 (Scheduling Engine)
+Current Plan: 1
+Total Plans in Phase: 3
+Status: Ready to execute
+Last Activity: 2026-03-20 — Phase 2 planned; ready for 02-01 scheduler foundation execution
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -70,6 +70,9 @@ Recent decisions affecting current work:
 - [Phase 1]: ReminderSummary includes scheduleSummary before UI render — Dashboard and drawer plans can consume a stable read model without duplicating schedule formatting.
 - [Phase 1]: AppShell owns the shared reminder dataset locally — Hero cards, rows, and drawer refresh stay synchronized without adding a global state layer too early.
 - [Phase 1]: Rust next_due_at stays authoritative for both interval and fixed_time schedules — React formats persisted timestamps but never recomputes schedule timing.
+- [Phase 2]: Global quiet hours and reminder-level active windows both apply — A reminder may fire only when both rules allow it.
+- [Phase 2]: Short gaps use a 2-hour threshold with one catch-up occurrence per reminder — Long gaps recompute forward without replay.
+- [Phase 2]: Dashboard-top strip owns app-wide scheduler controls while reminder-level active windows stay in the existing drawer.
 
 ### Pending Todos
 
@@ -82,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T08:03:33Z
-Stopped at: Completed 01-04-PLAN.md
-Resume file: .planning/ROADMAP.md
+Last session: 2026-03-20T09:55:39Z
+Stopped at: Planned 02-01-PLAN.md
+Resume file: .planning/phases/02-scheduling-engine/02-01-PLAN.md
