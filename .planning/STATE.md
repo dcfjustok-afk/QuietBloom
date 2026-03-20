@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_plan: 4
-status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-03-20T03:18:24Z"
-last_activity: 2026-03-20 — 01-03 completed with dashboard CRUD shell, drawer workflow, and component coverage
+status: completed
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-03-20T08:03:33Z"
+last_activity: 2026-03-20 — Phase 1 completed with full schedule authoring, Rust next-due computation, and persisted dashboard presentation
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -22,37 +22,37 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Users can set up and trust beautiful, low-friction reminders that fit their work rhythm.
-**Current focus:** Phase 1 - Reminder Foundation
+**Current focus:** Phase 2 - Scheduling Engine (not started)
 
 ## Current Position
 
 Phase: 1 of 4 (Reminder Foundation)
-Current Plan: 4
+Current Plan: Complete (4 of 4)
 Total Plans in Phase: 4
-Status: Ready to execute
-Last Activity: 2026-03-20 — 01-03 completed; ready for 01-04 preset-first schedule editor
+Status: Completed
+Last Activity: 2026-03-20 — Phase 1 completed; ready for Phase 2 planning and execution
 
-Progress: [███████░░░] 75%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 24 min
-- Total execution time: 1.2 hours
+- Total plans completed: 4
+- Average duration: 29 min
+- Total execution time: 1.9 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 3 | 72 min | 24 min |
+| 1 | 4 | 116 min | 29 min |
 | 2 | 0 | 0 min | - |
 | 3 | 0 | 0 min | - |
 | 4 | 0 | 0 min | - |
 
 **Recent Trend:**
-- Last 5 plans: 11min, 7min, 54min
-- Trend: Increased during UI-heavy integration work
+- Last 5 plans: 11min, 7min, 54min, 44min
+- Trend: Stable after the Phase 1 UI foundation was in place
 
 ## Accumulated Context
 
@@ -69,6 +69,7 @@ Recent decisions affecting current work:
 - [Phase 1]: Frontend fixed_time schedules stay in minutes-of-day arrays — This keeps form state and preset editing simpler while wrappers absorb Rust transport details.
 - [Phase 1]: ReminderSummary includes scheduleSummary before UI render — Dashboard and drawer plans can consume a stable read model without duplicating schedule formatting.
 - [Phase 1]: AppShell owns the shared reminder dataset locally — Hero cards, rows, and drawer refresh stay synchronized without adding a global state layer too early.
+- [Phase 1]: Rust next_due_at stays authoritative for both interval and fixed_time schedules — React formats persisted timestamps but never recomputes schedule timing.
 
 ### Pending Todos
 
@@ -81,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T03:18:24Z
-Stopped at: Completed 01-03-PLAN.md
-Resume file: .planning/phases/01-reminder-foundation/01-04-PLAN.md
+Last session: 2026-03-20T08:03:33Z
+Stopped at: Completed 01-04-PLAN.md
+Resume file: .planning/ROADMAP.md

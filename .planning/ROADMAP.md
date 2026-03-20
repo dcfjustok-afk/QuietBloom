@@ -10,7 +10,7 @@ QuietBloom v1 should ship as a local-first desktop reminder tool that users can 
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Reminder Foundation** - Build the local reminder model, persistence, and base authoring flows
+- [x] **Phase 1: Reminder Foundation** - Build the local reminder model, persistence, and base authoring flows
 - [ ] **Phase 2: Scheduling Engine** - Make reminder timing resilient, rule-driven, and recoverable
 - [ ] **Phase 3: Native Delivery** - Deliver due reminders through desktop notifications and dependable action handling
 - [ ] **Phase 4: Daily Experience** - Add history, settings, and polished day-to-day control surfaces
@@ -32,7 +32,7 @@ Plans:
 - [x] 01-01: Add Wave 0 test harness and native reminder persistence foundation
 - [x] 01-02: Mirror reminder contracts and typed API wrappers in TypeScript
 - [x] 01-03: Build dashboard-first CRUD shell and right-side drawer flows
-- [ ] 01-04: Add preset-first schedule editor and persisted next-due presentation
+- [x] 01-04: Add preset-first schedule editor and persisted next-due presentation
 
 ### Phase 2: Scheduling Engine
 **Goal**: Reminder timing behaves predictably across quiet hours, pauses, and app lifecycle interruptions.
@@ -87,7 +87,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Reminder Foundation | 3/4 | In Progress | - |
+| 1. Reminder Foundation | 4/4 | Completed | 2026-03-20 |
 | 2. Scheduling Engine | 0/3 | Not started | - |
 | 3. Native Delivery | 0/3 | Not started | - |
 | 4. Daily Experience | 0/2 | Not started | - |
