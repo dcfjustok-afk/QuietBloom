@@ -8,7 +8,7 @@
 ### Reminder Management
 
 - [x] **REMD-01**: User can create multiple reminder items with a title, short instruction, and enabled state
-- [ ] **REMD-02**: User can edit, enable or disable, and delete an existing reminder item
+- [x] **REMD-02**: User can edit, enable or disable, and delete an existing reminder item
 - [x] **REMD-03**: User can view each reminder's next due time and current state from the main app surface
 
 ### Scheduling
@@ -62,7 +62,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | REMD-01 | Phase 1 | Complete |
-| REMD-02 | Phase 1 | Pending |
+| REMD-02 | Phase 1 | Complete |
 | REMD-03 | Phase 1 | Complete |
 | SCHD-01 | Phase 1 | Complete |
 | SCHD-02 | Phase 1 | Complete |
@@ -85,4 +85,4 @@
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-20 after 01-02 completion*
+*Last updated: 2026-03-20 after 01-03 completion*
