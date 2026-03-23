@@ -7,7 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use tauri::Manager;
 
 use crate::domain::reminder::{Reminder, ReminderDraft};
-use crate::domain::scheduler::ReminderRuntimeStatus;
+use crate::domain::scheduler::{ReminderRuntimeStatus, SchedulerContext};
 
 const CREATE_REMINDERS_TABLE: &str = r#"
 CREATE TABLE IF NOT EXISTS reminders (
@@ -66,7 +66,7 @@ impl ReminderRepository {
         let mut reminders = Vec::new();
         for row in rows {
             let mut reminder = row.map_err(|error| error.to_string())?;
-            self.refresh_next_due(&conn, &mut reminder)?;
+            self.refresh_next_due(&conn, &mut reminder, &SchedulerContext::default())?;
             reminders.push(reminder);
         }
 
@@ -78,8 +78,12 @@ impl ReminderRepository {
         let draft = draft.normalized()?;
         let now = Utc::now();
         let schedule_json = serde_json::to_string(&draft.schedule).map_err(|error| error.to_string())?;
-        let next_due_at = if draft.enabled() {
-            Some(draft.schedule.compute_next_due(now)?)
+        let decision = if draft.enabled() {
+            Some(
+                draft
+                    .schedule
+                    .compute_effective_next_due(now, &SchedulerContext::default())?,
+            )
         } else {
             None
         };
@@ -107,7 +111,9 @@ impl ReminderRepository {
                     bool_to_int(draft.enabled()),
                     draft.schedule.kind(),
                     schedule_json,
-                    next_due_at.map(|value| value.to_rfc3339()),
+                    decision
+                        .as_ref()
+                        .map(|value| value.effective_due_at.to_rfc3339()),
                     created_at,
                     now.to_rfc3339(),
                     id,
@@ -126,7 +132,9 @@ impl ReminderRepository {
                     bool_to_int(draft.enabled()),
                     draft.schedule.kind(),
                     schedule_json,
-                    next_due_at.map(|value| value.to_rfc3339()),
+                    decision
+                        .as_ref()
+                        .map(|value| value.effective_due_at.to_rfc3339()),
                     now.to_rfc3339(),
                     now.to_rfc3339(),
                 ],
@@ -157,11 +165,23 @@ impl ReminderRepository {
         let mut reminder = self.get(id)?;
         reminder.enabled = enabled;
         reminder.updated_at = Utc::now();
-        reminder.next_due_at = if enabled {
-            Some(reminder.schedule.compute_next_due(reminder.updated_at)?)
+
+        let decision = if enabled {
+            Some(
+                reminder
+                    .schedule
+                    .compute_effective_next_due(reminder.updated_at, &SchedulerContext::default())?,
+            )
         } else {
             None
         };
+
+        reminder.base_due_at = decision.as_ref().map(|value| value.base_due_at);
+        reminder.runtime_status = decision
+            .as_ref()
+            .map(|value| value.runtime_status.clone())
+            .unwrap_or(ReminderRuntimeStatus::Scheduled);
+        reminder.next_due_at = decision.as_ref().map(|value| value.effective_due_at);
 
         let conn = self.open_connection()?;
         let affected = conn
@@ -203,7 +223,7 @@ impl ReminderRepository {
     fn get(&self, id: i64) -> Result<Reminder, String> {
         let conn = self.open_connection()?;
         let mut reminder = self.get_with_conn(&conn, id)?;
-        self.refresh_next_due(&conn, &mut reminder)?;
+        self.refresh_next_due(&conn, &mut reminder, &SchedulerContext::default())?;
         Ok(reminder)
     }
 
@@ -216,12 +236,18 @@ impl ReminderRepository {
         .map_err(|error| error.to_string())
     }
 
-    fn refresh_next_due(&self, conn: &Connection, reminder: &mut Reminder) -> Result<(), String> {
-        let expected = if reminder.enabled {
-            Some(reminder.schedule.compute_next_due(Utc::now())?)
+    fn refresh_next_due(
+        &self,
+        conn: &Connection,
+        reminder: &mut Reminder,
+        context: &SchedulerContext,
+    ) -> Result<(), String> {
+        let decision = if reminder.enabled {
+            Some(reminder.schedule.compute_effective_next_due(Utc::now(), context)?)
         } else {
             None
         };
+        let expected = decision.as_ref().map(|value| value.effective_due_at);
 
         if reminder.next_due_at != expected {
             let updated_at = Utc::now();
@@ -237,6 +263,12 @@ impl ReminderRepository {
             reminder.next_due_at = expected;
             reminder.updated_at = updated_at;
         }
+
+        reminder.base_due_at = decision.as_ref().map(|value| value.base_due_at);
+        reminder.runtime_status = decision
+            .as_ref()
+            .map(|value| value.runtime_status.clone())
+            .unwrap_or(ReminderRuntimeStatus::Scheduled);
 
         Ok(())
     }

@@ -1,5 +1,7 @@
-use chrono::{DateTime, Local, Timelike, Utc};
+use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::domain::schedule::build_local_candidate;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -33,8 +35,22 @@ impl LocalTimeWindow {
     }
 
     pub fn defer_utc(&self, candidate: DateTime<Utc>) -> Result<DateTime<Utc>, String> {
-        let _ = candidate;
-        Ok(candidate)
+        let local = candidate.with_timezone(&Local);
+        let minute_of_day = (local.hour() * 60 + local.minute()) as u16;
+        let start_hour = u32::from(self.start_minute_of_day / 60);
+        let start_minute = u32::from(self.start_minute_of_day % 60);
+
+        let target_date = if self.start_minute_of_day < self.end_minute_of_day {
+            if minute_of_day < self.start_minute_of_day {
+                local.date_naive()
+            } else {
+                local.date_naive() + Duration::days(1)
+            }
+        } else {
+            local.date_naive()
+        };
+
+        Ok(build_local_candidate(target_date, start_hour, start_minute)?.with_timezone(&Utc))
     }
 }
 
@@ -79,18 +95,24 @@ impl SchedulerContext {
             }
         }
 
-        if let Some(window) = self.quiet_hours.as_ref() {
-            if window.contains_utc(effective_due_at) {
-                effective_due_at = window.defer_utc(effective_due_at)?;
-                runtime_status = ReminderRuntimeStatus::DeferredByQuietHours;
+        for _ in 0..4 {
+            if let Some(window) = self.quiet_hours.as_ref() {
+                if window.contains_utc(effective_due_at) {
+                    effective_due_at = window.defer_utc(effective_due_at)?;
+                    runtime_status = ReminderRuntimeStatus::DeferredByQuietHours;
+                    continue;
+                }
             }
-        }
 
-        if let Some(window) = active_window {
-            if !window.contains_utc(effective_due_at) {
-                effective_due_at = window.defer_utc(effective_due_at)?;
-                runtime_status = ReminderRuntimeStatus::DeferredByActiveWindow;
+            if let Some(window) = active_window {
+                if !window.contains_utc(effective_due_at) {
+                    effective_due_at = window.defer_utc(effective_due_at)?;
+                    runtime_status = ReminderRuntimeStatus::DeferredByActiveWindow;
+                    continue;
+                }
             }
+
+            break;
         }
 
         Ok(EffectiveNextDue {
@@ -188,7 +210,7 @@ mod tests {
 
         let json = serde_json::to_value(&reminder).unwrap();
 
-        assert_eq!(json.get("baseDueAt").and_then(|value| value.as_str()), Some(local_utc(2026, 3, 23, 9, 0).to_rfc3339().as_str()));
+        assert_eq!(json.get("baseDueAt").and_then(|value| value.as_str()), Some("2026-03-23T01:00:00Z"));
         assert_eq!(json.get("runtimeStatus").and_then(|value| value.as_str()), Some("deferred_by_active_window"));
     }
 }
