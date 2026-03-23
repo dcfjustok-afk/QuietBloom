@@ -35,6 +35,14 @@ pub struct ReminderRepository {
 }
 
 impl ReminderRepository {
+    pub fn refresh_all(
+        &self,
+        _context: &SchedulerContext,
+        _now: DateTime<Utc>,
+    ) -> Result<Vec<Reminder>, String> {
+        self.list()
+    }
+
     pub fn for_app(app: &tauri::AppHandle) -> Result<Self, String> {
         let mut data_dir = app
             .path()
@@ -330,7 +338,10 @@ fn compare_reminders(left: &Reminder, right: &Reminder) -> Ordering {
 #[cfg(test)]
 mod tests {
     use super::ReminderRepository;
+    use chrono::Utc;
+    use rusqlite::Connection;
     use crate::domain::reminder::ReminderDraft;
+    use crate::domain::scheduler::SchedulerContext;
     use crate::domain::schedule::{IntervalSchedule, Schedule};
     use std::env;
     use std::fs;
@@ -384,6 +395,30 @@ mod tests {
 
         repository.delete(created.id).unwrap();
         assert!(repository.list().unwrap().is_empty());
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn scheduler_state_repository_requires_explicit_refresh_instead_of_list_side_effects() {
+        let path = temp_db_path("scheduler_state_repository_requires_explicit_refresh");
+        let repository = ReminderRepository::new(path.clone()).unwrap();
+        let created = repository.save(sample_reminder(None)).unwrap();
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE reminders SET next_due_at = NULL, updated_at = ?1 WHERE id = ?2",
+            rusqlite::params![Utc::now().to_rfc3339(), created.id],
+        )
+        .unwrap();
+
+        let listed = repository.list().unwrap();
+        assert!(listed[0].next_due_at.is_none());
+
+        let refreshed = repository
+            .refresh_all(&SchedulerContext::default(), Utc::now())
+            .unwrap();
+        assert!(refreshed[0].next_due_at.is_some());
 
         let _ = fs::remove_file(path);
     }

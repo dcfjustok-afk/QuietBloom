@@ -73,6 +73,15 @@ pub struct EffectiveNextDue {
     pub runtime_status: ReminderRuntimeStatus,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SchedulerState {
+    pub quiet_hours: Option<LocalTimeWindow>,
+    pub pause_until: Option<DateTime<Utc>>,
+    pub last_reconciled_at: Option<DateTime<Utc>>,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SchedulerContext {
     pub quiet_hours: Option<LocalTimeWindow>,
@@ -80,6 +89,13 @@ pub struct SchedulerContext {
 }
 
 impl SchedulerContext {
+    pub fn from_state(state: &SchedulerState) -> Self {
+        Self {
+            quiet_hours: state.quiet_hours.clone(),
+            pause_until: state.pause_until,
+        }
+    }
+
     pub fn apply(
         &self,
         base_due_at: DateTime<Utc>,
