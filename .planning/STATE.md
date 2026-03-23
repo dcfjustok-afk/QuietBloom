@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-23T02:35:54.011Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-23T02:50:59.129Z"
 last_activity: 2026-03-23
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State
@@ -27,35 +27,36 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 2 of 4 (Scheduling Engine)
-Current Plan: 2
+Current Plan: 3
 Total Plans in Phase: 3
 Status: Ready to execute
-Last Activity: 2026-03-23 — Completed 02-01 scheduler foundation; 02-02 quiet-hours and pause-all controls are next
+Last Activity: 2026-03-23 — Completed 02-02 scheduler control surfaces; 02-03 recovery hardening is next
 
-Progress: [███████░░░] 71%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 26 min
-- Total execution time: 2.1 hours
+- Total plans completed: 6
+- Average duration: 24 min
+- Total execution time: 2.4 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 4 | 116 min | 29 min |
-| 2 | 1 | 12 min | 12 min |
+| 2 | 2 | 27 min | 14 min |
 | 3 | 0 | 0 min | - |
 | 4 | 0 | 0 min | - |
 
 **Recent Trend:**
-- Last 5 plans: 11min, 7min, 54min, 44min, 12min
+- Last 5 plans: 15min, 12min, 11min, 7min, 54min
 - Trend: Stable after the Phase 1 UI foundation was in place
 
 **Recent Metrics:**
 - Phase 02 P01 | 12min | 3 tasks | 11 files |
+| Phase 02 P02 | 15min | 3 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Reminder-level active windows remain embedded in schedule_json so reminder timing stays on one persisted payload.
 - [Phase 02]: Global quiet hours and pause-until state persist in one scheduler_state row instead of frontend or per-reminder storage.
 - [Phase 02]: SchedulerRuntime is a derived due-queue cache rebuilt from persisted repositories instead of per-reminder timers or delivery logic.
+- [Phase 02]: Scheduler snapshot carries quiet-hours, pause-all, and runtime summary copy so the dashboard strip stays thin and typed.
+- [Phase 02]: Reminder-level allowed hours stay embedded in the existing schedule payload and are edited only inside the reminder drawer.
+- [Phase 02]: App-wide timing state has one primary home in the dashboard strip, with only a lightweight secondary echo in Today overview.
 
 ### Pending Todos
 
@@ -91,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T02:35:54.009Z
-Stopped at: Completed 02-01-PLAN.md
-Resume file: .planning/phases/02-scheduling-engine/02-02-PLAN.md
+Last session: 2026-03-23T02:50:59.127Z
+Stopped at: Completed 02-02-PLAN.md
+Resume file: .planning/phases/02-scheduling-engine/02-03-PLAN.md

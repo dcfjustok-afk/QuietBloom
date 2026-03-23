@@ -46,7 +46,7 @@ Plans:
 
 Plans:
 - [x] 02-01: Implement Rust-side schedule compiler and due-queue runtime
-- [ ] 02-02: Add quiet-hours, pause-all, and next-fire recalculation rules
+- [x] 02-02: Add quiet-hours, pause-all, and next-fire recalculation rules
 - [ ] 02-03: Harden recovery for relaunch, sleep or wake, and overdue reconciliation
 
 ### Phase 3: Native Delivery
@@ -88,6 +88,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Reminder Foundation | 4/4 | Completed | 2026-03-20 |
-| 2. Scheduling Engine | 1/3 | In Progress | - |
+| 2. Scheduling Engine | 2/3 | In Progress | - |
 | 3. Native Delivery | 0/3 | Not started | - |
 | 4. Daily Experience | 0/2 | Not started | - |
