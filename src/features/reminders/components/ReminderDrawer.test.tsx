@@ -131,6 +131,56 @@ describe("ReminderDrawer", () => {
     });
   });
 
+  it("saves an active window from the drawer advanced schedule area", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ReminderDrawer isSaving={false} onClose={vi.fn()} onSave={onSave} open reminder={null} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Custom interval" }));
+    await user.type(screen.getByLabelText("Title"), "Deep work reset");
+    await user.click(screen.getByLabelText("Use allowed hours"));
+    fireEvent.change(screen.getByLabelText("Allowed hours start"), { target: { value: "21:00" } });
+    fireEvent.change(screen.getByLabelText("Allowed hours end"), { target: { value: "06:00" } });
+    await user.click(screen.getAllByRole("button", { name: "Save reminder" })[0]);
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({
+        type: "hydration",
+        title: "Deep work reset",
+        description: "",
+        enabled: true,
+        schedule: {
+          kind: "interval",
+          everyMinutes: 90,
+          anchorMinuteOfDay: 540,
+          activeWindow: { startMinuteOfDay: 1260, endMinuteOfDay: 360 },
+        },
+      });
+    });
+  });
+
+  it("blocks active window save when both boundaries are identical", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ReminderDrawer isSaving={false} onClose={vi.fn()} onSave={onSave} open reminder={null} />,
+    );
+
+    await user.type(screen.getByLabelText("Title"), "Deep work reset");
+    await user.click(screen.getByLabelText("Use allowed hours"));
+    fireEvent.change(screen.getByLabelText("Allowed hours start"), { target: { value: "08:00" } });
+    fireEvent.change(screen.getByLabelText("Allowed hours end"), { target: { value: "08:00" } });
+    await user.click(screen.getAllByRole("button", { name: "Save reminder" })[0]);
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText("Allowed hours must start and end at different times")).toBeDefined();
+    expect(screen.getByText("21:00 to 06:00 works across midnight.")) .toBeDefined();
+  });
+
   it("updates the dashboard after editing a schedule", async () => {
     const user = userEvent.setup();
 
