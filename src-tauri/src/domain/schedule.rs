@@ -1,6 +1,8 @@
 use chrono::{DateTime, Datelike, Duration, Local, LocalResult, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::scheduler::{EffectiveNextDue, LocalTimeWindow, SchedulerContext};
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Schedule {
@@ -13,6 +15,8 @@ pub enum Schedule {
 pub struct IntervalSchedule {
     pub every_minutes: u32,
     pub anchor_minute_of_day: u32,
+    #[serde(default)]
+    pub active_window: Option<LocalTimeWindow>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -20,6 +24,8 @@ pub struct IntervalSchedule {
 pub struct FixedTimeSchedule {
     pub weekdays: Vec<u8>,
     pub times: Vec<String>,
+    #[serde(default)]
+    pub active_window: Option<LocalTimeWindow>,
 }
 
 impl Schedule {
@@ -38,11 +44,34 @@ impl Schedule {
     }
 
     pub fn compute_next_due(&self, now: DateTime<Utc>) -> Result<DateTime<Utc>, String> {
+        Ok(self
+            .compute_effective_next_due(now, &SchedulerContext::default())?
+            .effective_due_at)
+    }
+
+    pub fn compute_base_next_due(&self, now: DateTime<Utc>) -> Result<DateTime<Utc>, String> {
         self.validate()?;
 
         match self {
             Self::Interval(schedule) => schedule.compute_next_due(now),
             Self::FixedTime(schedule) => schedule.compute_next_due(now),
+        }
+    }
+
+    pub fn compute_effective_next_due(
+        &self,
+        now: DateTime<Utc>,
+        context: &SchedulerContext,
+    ) -> Result<EffectiveNextDue, String> {
+        self.validate()?;
+        let base_due_at = self.compute_base_next_due(now)?;
+        context.apply(base_due_at, self.active_window())
+    }
+
+    pub fn active_window(&self) -> Option<&LocalTimeWindow> {
+        match self {
+            Self::Interval(schedule) => schedule.active_window.as_ref(),
+            Self::FixedTime(schedule) => schedule.active_window.as_ref(),
         }
     }
 }
@@ -55,6 +84,10 @@ impl IntervalSchedule {
 
         if self.anchor_minute_of_day > 1439 {
             return Err("anchorMinuteOfDay must be between 0 and 1439".to_string());
+        }
+
+        if let Some(active_window) = &self.active_window {
+            active_window.validate()?;
         }
 
         Ok(())
@@ -114,6 +147,10 @@ impl FixedTimeSchedule {
             parse_time(time)?;
         }
 
+        if let Some(active_window) = &self.active_window {
+            active_window.validate()?;
+        }
+
         Ok(())
     }
 
@@ -150,7 +187,7 @@ impl FixedTimeSchedule {
     }
 }
 
-fn build_local_candidate(
+pub(crate) fn build_local_candidate(
     date: NaiveDate,
     hour: u32,
     minute: u32,
@@ -161,7 +198,7 @@ fn build_local_candidate(
     resolve_local_datetime(candidate)
 }
 
-fn resolve_local_datetime(naive: chrono::NaiveDateTime) -> Result<DateTime<Local>, String> {
+pub(crate) fn resolve_local_datetime(naive: chrono::NaiveDateTime) -> Result<DateTime<Local>, String> {
     match Local.from_local_datetime(&naive) {
         LocalResult::Single(value) => Ok(value),
         LocalResult::Ambiguous(first, _) => Ok(first),
@@ -205,6 +242,7 @@ mod tests {
         let schedule = Schedule::Interval(IntervalSchedule {
             every_minutes: 4,
             anchor_minute_of_day: 0,
+            active_window: None,
         });
 
         assert!(schedule.validate().is_err());
@@ -215,6 +253,7 @@ mod tests {
         let schedule = Schedule::FixedTime(FixedTimeSchedule {
             weekdays: vec![],
             times: vec![],
+            active_window: None,
         });
 
         assert!(schedule.validate().is_err());
@@ -225,6 +264,7 @@ mod tests {
         let schedule = Schedule::Interval(IntervalSchedule {
             every_minutes: 30,
             anchor_minute_of_day: 540,
+            active_window: None,
         });
 
         let now = local_utc(2026, 3, 20, 9, 10);
@@ -239,6 +279,7 @@ mod tests {
         let schedule = Schedule::Interval(IntervalSchedule {
             every_minutes: 120,
             anchor_minute_of_day: 1320,
+            active_window: None,
         });
 
         let now = local_utc(2026, 3, 20, 23, 30);
@@ -256,6 +297,7 @@ mod tests {
         let schedule = Schedule::FixedTime(FixedTimeSchedule {
             weekdays: vec![1, 3, 5],
             times: vec!["10:30".to_string(), "15:00".to_string()],
+            active_window: None,
         });
 
         let now = local_utc(2026, 3, 23, 10, 45);
@@ -270,6 +312,7 @@ mod tests {
         let schedule = Schedule::FixedTime(FixedTimeSchedule {
             weekdays: vec![2],
             times: vec!["10:30".to_string()],
+            active_window: None,
         });
 
         let now = local_utc(2026, 3, 23, 16, 0);

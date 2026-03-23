@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::schedule::Schedule;
+use crate::domain::scheduler::ReminderRuntimeStatus;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -14,6 +15,9 @@ pub struct Reminder {
     pub enabled: bool,
     pub schedule: Schedule,
     pub next_due_at: Option<DateTime<Utc>>,
+    pub base_due_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub runtime_status: ReminderRuntimeStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

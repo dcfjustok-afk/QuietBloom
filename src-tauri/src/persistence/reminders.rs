@@ -7,6 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use tauri::Manager;
 
 use crate::domain::reminder::{Reminder, ReminderDraft};
+use crate::domain::scheduler::ReminderRuntimeStatus;
 
 const CREATE_REMINDERS_TABLE: &str = r#"
 CREATE TABLE IF NOT EXISTS reminders (
@@ -245,6 +246,11 @@ impl ReminderRepository {
         let next_due_at: Option<String> = row.get(7)?;
         let created_at: String = row.get(8)?;
         let updated_at: String = row.get(9)?;
+        let parsed_next_due_at = next_due_at
+            .as_ref()
+            .map(|value| parse_datetime(value))
+            .transpose()
+            .map_err(json_error)?;
 
         Ok(Reminder {
             id: row.get(0)?,
@@ -253,10 +259,9 @@ impl ReminderRepository {
             description: row.get(3)?,
             enabled: row.get::<_, i64>(4)? != 0,
             schedule: serde_json::from_str(&schedule_json).map_err(json_error)?,
-            next_due_at: next_due_at
-                .map(|value| parse_datetime(&value))
-                .transpose()
-                .map_err(json_error)?,
+            next_due_at: parsed_next_due_at,
+            base_due_at: parsed_next_due_at,
+            runtime_status: ReminderRuntimeStatus::Scheduled,
             created_at: parse_datetime(&created_at).map_err(json_error)?,
             updated_at: parse_datetime(&updated_at).map_err(json_error)?,
         })
@@ -361,6 +366,7 @@ mod tests {
             schedule: Schedule::Interval(IntervalSchedule {
                 every_minutes: 120,
                 anchor_minute_of_day: 0,
+                active_window: None,
             }),
         }
     }
