@@ -1,7 +1,9 @@
 use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::schedule::build_local_candidate;
+use crate::domain::schedule::{build_local_candidate, Schedule};
+
+const SHORT_GAP_THRESHOLD: Duration = Duration::hours(2);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -91,11 +93,40 @@ impl ReminderRuntimeStatus {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum NextDueKind {
+    #[default]
+    Normal,
+    CatchUp,
+}
+
+impl NextDueKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Normal => "normal",
+            Self::CatchUp => "catch_up",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Result<Self, std::io::Error> {
+        match value {
+            "normal" => Ok(Self::Normal),
+            "catch_up" => Ok(Self::CatchUp),
+            other => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("unknown next due kind: {other}"),
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct EffectiveNextDue {
     pub base_due_at: DateTime<Utc>,
     pub effective_due_at: DateTime<Utc>,
+    pub next_due_kind: NextDueKind,
     pub runtime_status: ReminderRuntimeStatus,
 }
 
@@ -126,6 +157,15 @@ impl SchedulerContext {
         &self,
         base_due_at: DateTime<Utc>,
         active_window: Option<&LocalTimeWindow>,
+    ) -> Result<EffectiveNextDue, String> {
+        self.apply_with_kind(base_due_at, active_window, NextDueKind::Normal)
+    }
+
+    pub fn apply_with_kind(
+        &self,
+        base_due_at: DateTime<Utc>,
+        active_window: Option<&LocalTimeWindow>,
+        next_due_kind: NextDueKind,
     ) -> Result<EffectiveNextDue, String> {
         let mut effective_due_at = base_due_at;
         let mut runtime_status = ReminderRuntimeStatus::Scheduled;
@@ -160,9 +200,58 @@ impl SchedulerContext {
         Ok(EffectiveNextDue {
             base_due_at,
             effective_due_at,
+            next_due_kind,
             runtime_status,
         })
     }
+}
+
+pub fn reconcile_effective_next_due(
+    schedule: &Schedule,
+    enabled: bool,
+    persisted_next_due_at: Option<DateTime<Utc>>,
+    scheduler_state: &SchedulerState,
+    now: DateTime<Utc>,
+) -> Result<Option<EffectiveNextDue>, String> {
+    if !enabled {
+        return Ok(None);
+    }
+
+    let context = SchedulerContext::from_state(scheduler_state);
+    let next_due_kind = determine_next_due_kind(persisted_next_due_at, scheduler_state, now);
+    let base_due_at = match next_due_kind {
+        NextDueKind::CatchUp => now,
+        NextDueKind::Normal => schedule.compute_base_next_due(now)?,
+    };
+
+    context
+        .apply_with_kind(base_due_at, schedule.active_window(), next_due_kind)
+        .map(Some)
+}
+
+fn determine_next_due_kind(
+    persisted_next_due_at: Option<DateTime<Utc>>,
+    scheduler_state: &SchedulerState,
+    now: DateTime<Utc>,
+) -> NextDueKind {
+    if scheduler_state.pause_until.is_some() {
+        return NextDueKind::Normal;
+    }
+
+    let Some(last_reconciled_at) = scheduler_state.last_reconciled_at else {
+        return NextDueKind::Normal;
+    };
+
+    let gap = now.signed_duration_since(last_reconciled_at);
+    if gap <= Duration::zero() || gap > SHORT_GAP_THRESHOLD {
+        return NextDueKind::Normal;
+    }
+
+    if persisted_next_due_at.is_some_and(|due_at| due_at <= now) {
+        return NextDueKind::CatchUp;
+    }
+
+    NextDueKind::Normal
 }
 
 #[cfg(test)]

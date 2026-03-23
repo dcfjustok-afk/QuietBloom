@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Utc};
 
 use crate::domain::reminder::Reminder;
-use crate::domain::scheduler::{ReminderRuntimeStatus, SchedulerContext, SchedulerState};
+use crate::domain::scheduler::{ReminderRuntimeStatus, SchedulerState};
 use crate::persistence::reminders::ReminderRepository;
 use crate::persistence::scheduler_state::SchedulerStateRepository;
 
@@ -67,9 +67,8 @@ impl SchedulerRuntime {
 
     pub fn rebuild_for_app(&self, app: &tauri::AppHandle) -> Result<SchedulerRuntimeSnapshot, String> {
         let scheduler_state = SchedulerStateRepository::for_app(app)?.get()?;
-        let context = SchedulerContext::from_state(&scheduler_state);
         let rebuilt_at = Utc::now();
-        let reminders = ReminderRepository::for_app(app)?.refresh_all(&context, rebuilt_at)?;
+        let reminders = ReminderRepository::for_app(app)?.refresh_all(&scheduler_state, rebuilt_at)?;
         self.rebuild_from_state(&reminders, &scheduler_state, rebuilt_at)?;
         self.snapshot()
     }
@@ -104,7 +103,7 @@ mod tests {
 
     use crate::domain::reminder::Reminder;
     use crate::domain::schedule::{IntervalSchedule, Schedule};
-    use crate::domain::scheduler::{ReminderRuntimeStatus, SchedulerState};
+    use crate::domain::scheduler::{NextDueKind, ReminderRuntimeStatus, SchedulerState};
 
     use super::SchedulerRuntime;
 
@@ -166,6 +165,7 @@ mod tests {
             }),
             next_due_at,
             base_due_at: next_due_at,
+            next_due_kind: NextDueKind::Normal,
             runtime_status: ReminderRuntimeStatus::Scheduled,
             created_at: Utc::now(),
             updated_at: Utc::now(),
