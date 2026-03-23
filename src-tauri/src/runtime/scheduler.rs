@@ -4,7 +4,9 @@ use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Utc};
 
 use crate::domain::reminder::Reminder;
-use crate::domain::scheduler::{ReminderRuntimeStatus, SchedulerState};
+use crate::domain::scheduler::{ReminderRuntimeStatus, SchedulerContext, SchedulerState};
+use crate::persistence::reminders::ReminderRepository;
+use crate::persistence::scheduler_state::SchedulerStateRepository;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DueQueueEntry {
@@ -34,8 +36,23 @@ impl SchedulerRuntime {
         scheduler_state: &SchedulerState,
         rebuilt_at: DateTime<Utc>,
     ) -> Result<Vec<DueQueueEntry>, String> {
-        let _ = (reminders, scheduler_state, rebuilt_at);
-        let queue = Vec::new();
+        let _ = scheduler_state;
+        let mut queue = reminders
+            .iter()
+            .filter(|reminder| reminder.enabled)
+            .filter_map(|reminder| {
+                reminder.next_due_at.map(|due_at| DueQueueEntry {
+                    reminder_id: reminder.id,
+                    due_at,
+                    runtime_status: reminder.runtime_status.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+        queue.sort_by(|left, right| {
+            left.due_at
+                .cmp(&right.due_at)
+                .then_with(|| left.reminder_id.cmp(&right.reminder_id))
+        });
         *self.due_queue.lock().map_err(|_| "scheduler runtime queue lock poisoned".to_string())? = queue.clone();
         *self
             .last_rebuilt_at
@@ -45,7 +62,24 @@ impl SchedulerRuntime {
     }
 
     pub fn invalidate(&self) {
-        let _ = self.invalidation_count.load(Ordering::SeqCst);
+        self.invalidation_count.fetch_add(1, Ordering::SeqCst);
+    }
+
+    pub fn rebuild_for_app(&self, app: &tauri::AppHandle) -> Result<SchedulerRuntimeSnapshot, String> {
+        let scheduler_state = SchedulerStateRepository::for_app(app)?.get()?;
+        let context = SchedulerContext::from_state(&scheduler_state);
+        let rebuilt_at = Utc::now();
+        let reminders = ReminderRepository::for_app(app)?.refresh_all(&context, rebuilt_at)?;
+        self.rebuild_from_state(&reminders, &scheduler_state, rebuilt_at)?;
+        self.snapshot()
+    }
+
+    pub fn invalidate_for_app(
+        &self,
+        app: &tauri::AppHandle,
+    ) -> Result<SchedulerRuntimeSnapshot, String> {
+        self.invalidate();
+        self.rebuild_for_app(app)
     }
 
     pub fn snapshot(&self) -> Result<SchedulerRuntimeSnapshot, String> {
