@@ -8,10 +8,10 @@ export const schedulerCommandNames = {
   saveQuietHours: "save_quiet_hours",
   pauseAll: "pause_all_reminders",
   resumeAll: "resume_all_reminders",
-  reconcile: "reconcile_scheduler",
 } as const;
 
 export const schedulerChangedEventName = "scheduler:changed";
+export const reconcileSchedulerCommandName = "reconcile_scheduler";
 
 export type LifecycleRecoveryReason = "startup" | "resume";
 
@@ -36,7 +36,7 @@ export function resumeAllReminders(): Promise<SchedulerSnapshot> {
 }
 
 export function reconcileScheduler(reason: LifecycleRecoveryReason): Promise<SchedulerSnapshot> {
-  return invoke<SchedulerSnapshot>(schedulerCommandNames.reconcile, {
+  return invoke<SchedulerSnapshot>(reconcileSchedulerCommandName, {
     reason,
   });
 }

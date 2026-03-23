@@ -68,6 +68,11 @@ const snapshot = {
 
 describe("AppShell scheduler invalidation", () => {
   beforeEach(() => {
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      configurable: true,
+      value: {},
+    });
+
     listReminders.mockReset();
     getSchedulerSnapshot.mockReset();
     listen.mockReset();

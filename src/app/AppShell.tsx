@@ -41,11 +41,19 @@ export function AppShell() {
   const [updatingPauseAll, setUpdatingPauseAll] = useState(false);
   const isRecoveringRef = useRef(false);
 
+  function hasTauriRuntime() {
+    return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  }
+
   useEffect(() => {
     void refreshDashboard(true);
   }, []);
 
   useEffect(() => {
+    if (!hasTauriRuntime()) {
+      return undefined;
+    }
+
     let disposed = false;
     let unlisten: undefined | (() => void);
 
@@ -67,6 +75,10 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
+    if (!hasTauriRuntime()) {
+      return undefined;
+    }
+
     function requestRecovery() {
       if (isRecoveringRef.current) {
         return;
