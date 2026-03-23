@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 
 import {
   deleteReminder,
@@ -9,7 +10,9 @@ import {
 import {
   getSchedulerSnapshot,
   pauseAllReminders,
+  reconcileScheduler,
   resumeAllReminders,
+  schedulerChangedEventName,
   saveQuietHours,
 } from "../features/reminders/api/scheduler";
 import { ReminderDrawer } from "../features/reminders/components/ReminderDrawer";
@@ -36,9 +39,64 @@ export function AppShell() {
   const [schedulerSnapshot, setSchedulerSnapshot] = useState<SchedulerSnapshot | null>(null);
   const [savingQuietHoursState, setSavingQuietHoursState] = useState(false);
   const [updatingPauseAll, setUpdatingPauseAll] = useState(false);
+  const isRecoveringRef = useRef(false);
 
   useEffect(() => {
     void refreshDashboard(true);
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: undefined | (() => void);
+
+    void listen(schedulerChangedEventName, async () => {
+      await refreshDashboard();
+    }).then((cleanup) => {
+      if (disposed) {
+        cleanup();
+        return;
+      }
+
+      unlisten = cleanup;
+    });
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    function requestRecovery() {
+      if (isRecoveringRef.current) {
+        return;
+      }
+
+      isRecoveringRef.current = true;
+      void reconcileScheduler("resume")
+        .catch(() => undefined)
+        .finally(() => {
+          isRecoveringRef.current = false;
+        });
+    }
+
+    function handleFocus() {
+      requestRecovery();
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        requestRecovery();
+      }
+    }
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   async function refreshDashboard(showLoading = false) {
@@ -144,7 +202,7 @@ export function AppShell() {
   }
 
   const nextReminder = reminders.find((reminder) => reminder.enabled && reminder.nextDueAt) ?? null;
-  const nextDue = formatHeroNextDue(nextReminder?.nextDueAt ?? null);
+  const nextDue = formatHeroNextDue(nextReminder);
   const enabledCount = reminders.filter((reminder) => reminder.enabled).length;
   const dueTodayCount = countDueToday(reminders.filter((reminder) => reminder.enabled));
   const scheduleMix = summarizeScheduleMix(reminders);
@@ -184,6 +242,9 @@ export function AppShell() {
                 detail={nextDue.detail}
                 onEdit={openEditReminder}
                 reminder={nextReminder}
+                stateLabel={nextDue.stateLabel}
+                stateTone={nextDue.stateTone}
+                timingLabel={nextDue.timingLabel}
                 title={nextDue.title}
               />
               <TodayOverviewCard

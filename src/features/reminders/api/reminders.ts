@@ -33,6 +33,13 @@ type NativeReminder = {
   enabled: boolean;
   schedule: NativeReminderSchedule;
   nextDueAt: string | null;
+  nextDueKind?: "normal" | "catch_up";
+  runtimeStatus?:
+    | "scheduled"
+    | "deferred_by_active_window"
+    | "deferred_by_quiet_hours"
+    | "paused"
+    | "catch_up";
   createdAt: string;
   updatedAt: string;
 };
@@ -104,6 +111,8 @@ function toReminderSummary(reminder: NativeReminder): ReminderSummary {
     schedule,
     scheduleSummary: describeReminderSchedule(schedule),
     nextDueAt: reminder.nextDueAt,
+    nextDueKind: reminder.nextDueKind ?? "normal",
+    runtimeStatus: reminder.runtimeStatus ?? "scheduled",
   };
 }
 

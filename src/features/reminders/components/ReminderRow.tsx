@@ -3,6 +3,9 @@ import type { ReminderSummary } from "../model/reminder";
 
 type ReminderRowProps = {
   reminder: ReminderSummary;
+  timingLabel?: string;
+  stateLabel?: string;
+  stateTone?: "active" | "inactive" | "neutral";
   nextDueTitle: string;
   nextDueDetail: string;
   onEdit: (reminder: ReminderSummary) => void;
@@ -12,6 +15,9 @@ type ReminderRowProps = {
 
 export function ReminderRow({
   reminder,
+  timingLabel = "Next due",
+  stateLabel = reminder.enabled ? "Enabled" : "Disabled",
+  stateTone = reminder.enabled ? "active" : "inactive",
   nextDueTitle,
   nextDueDetail,
   onEdit,
@@ -33,12 +39,15 @@ export function ReminderRow({
           <h3 className="reminder-row__title">{reminder.title}</h3>
           <p className="reminder-row__description">{reminder.description ?? "No description yet."}</p>
         </div>
+        <span className={`pill reminder-row__state ${stateTone === "active" ? "pill--active" : stateTone === "inactive" ? "pill--inactive" : ""}`.trim()}>
+          {stateLabel}
+        </span>
       </div>
 
       <div className="reminder-row__meta">
         <span className="reminder-row__meta-label">Schedule</span>
         <span>{reminder.scheduleSummary}</span>
-        <span className="reminder-row__meta-label">Next due</span>
+        <span className="reminder-row__meta-label">{timingLabel}</span>
         <span>
           {nextDueTitle} · {nextDueDetail}
         </span>

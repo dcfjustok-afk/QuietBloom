@@ -19,6 +19,7 @@ vi.mock("../features/reminders/api/scheduler", () => ({
   pauseAllReminders: vi.fn(),
   reconcileScheduler: vi.fn(),
   resumeAllReminders: vi.fn(),
+  schedulerChangedEventName: "scheduler:changed",
   saveQuietHours: vi.fn(),
 }));
 

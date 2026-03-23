@@ -43,6 +43,9 @@ export function ReminderListSection({
                 reminder={reminder}
                 nextDueDetail={nextDue.detail}
                 nextDueTitle={nextDue.title}
+                stateLabel={nextDue.stateLabel}
+                stateTone={nextDue.stateTone}
+                timingLabel={nextDue.timingLabel}
                 onDelete={onDelete}
                 onEdit={onEdit}
                 onToggle={onToggle}

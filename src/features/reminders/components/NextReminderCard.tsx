@@ -3,12 +3,23 @@ import type { ReminderSummary } from "../model/reminder";
 
 type NextReminderCardProps = {
   reminder: ReminderSummary | null;
+  timingLabel?: string;
+  stateLabel?: string;
+  stateTone?: "active" | "inactive" | "neutral";
   title: string;
   detail: string;
   onEdit: (reminder: ReminderSummary) => void;
 };
 
-export function NextReminderCard({ reminder, title, detail, onEdit }: NextReminderCardProps) {
+export function NextReminderCard({
+  reminder,
+  timingLabel = "Next due",
+  stateLabel = reminder?.enabled ? "Enabled" : "Disabled",
+  stateTone = reminder?.enabled ? "active" : "inactive",
+  title,
+  detail,
+  onEdit,
+}: NextReminderCardProps) {
   if (!reminder) {
     return (
       <section className="surface-card next-reminder-card">
@@ -42,8 +53,8 @@ export function NextReminderCard({ reminder, title, detail, onEdit }: NextRemind
             <span>{meta.label}</span>
           </div>
         </div>
-        <span className={`pill ${reminder.enabled ? "pill--active" : "pill--inactive"}`}>
-          {reminder.enabled ? "Enabled" : "Disabled"}
+        <span className={`pill ${stateTone === "active" ? "pill--active" : stateTone === "inactive" ? "pill--inactive" : ""}`.trim()}>
+          {stateLabel}
         </span>
       </div>
 
@@ -56,7 +67,7 @@ export function NextReminderCard({ reminder, title, detail, onEdit }: NextRemind
       </div>
 
       <div className="next-reminder-card__timing">
-        <span className="next-reminder-card__label">Next due</span>
+        <span className="next-reminder-card__label">{timingLabel}</span>
         <p className="next-reminder-card__time">{title}</p>
         <p className="next-reminder-card__meta">{detail}</p>
       </div>

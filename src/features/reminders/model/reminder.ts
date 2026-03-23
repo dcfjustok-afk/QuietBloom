@@ -64,6 +64,13 @@ export type ReminderSummary = {
   schedule: ReminderSchedule;
   scheduleSummary: string;
   nextDueAt: string | null;
+  nextDueKind?: "normal" | "catch_up";
+  runtimeStatus?:
+    | "scheduled"
+    | "deferred_by_active_window"
+    | "deferred_by_quiet_hours"
+    | "paused"
+    | "catch_up";
 };
 
 export type SaveReminderInput = {
