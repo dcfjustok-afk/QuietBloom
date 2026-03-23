@@ -3,11 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "../../../app/AppShell";
+import type { SchedulerSnapshot } from "../model/scheduler";
 
 const listReminders = vi.fn();
 const saveReminder = vi.fn();
 const deleteReminder = vi.fn();
 const setReminderEnabled = vi.fn();
+const getSchedulerSnapshot = vi.fn();
 
 vi.mock("../api/reminders", () => ({
   listReminders: (...args: unknown[]) => listReminders(...args),
@@ -16,12 +18,49 @@ vi.mock("../api/reminders", () => ({
   setReminderEnabled: (...args: unknown[]) => setReminderEnabled(...args),
 }));
 
+vi.mock("../api/scheduler", async () => {
+  const actual = await vi.importActual<typeof import("../api/scheduler")>("../api/scheduler");
+
+  return {
+    ...actual,
+    getSchedulerSnapshot: (...args: unknown[]) => getSchedulerSnapshot(...args),
+    saveQuietHours: vi.fn(),
+    pauseAllReminders: vi.fn(),
+    resumeAllReminders: vi.fn(),
+  };
+});
+
+const schedulerSnapshot: SchedulerSnapshot = {
+  quietHours: {
+    enabled: true,
+    startMinuteOfDay: 1320,
+    endMinuteOfDay: 480,
+    summary: "22:00-08:00",
+    stateLabel: "Allowed now",
+  },
+  pauseAll: {
+    isPaused: false,
+    pauseUntil: null,
+    summary: "Pause reminders for a short stretch",
+    availablePresets: ["30_minutes", "1_hour", "2_hours", "rest_of_today"],
+  },
+  runtimeSummary: {
+    tone: "idle",
+    title: "Allowed now",
+    detail: "Quiet hours and pause-all stay available here without leaving the dashboard.",
+  },
+  lastRebuiltAt: "2026-03-23T06:00:00Z",
+  invalidationCount: 1,
+};
+
 describe("ReminderRow flows", () => {
   beforeEach(() => {
     listReminders.mockReset();
     saveReminder.mockReset();
     deleteReminder.mockReset();
     setReminderEnabled.mockReset();
+    getSchedulerSnapshot.mockReset();
+    getSchedulerSnapshot.mockResolvedValue(schedulerSnapshot);
   });
 
   it("edits toggles deletes", async () => {
