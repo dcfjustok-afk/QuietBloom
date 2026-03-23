@@ -285,6 +285,7 @@ export function ReminderDrawer({ open, reminder, isSaving, onClose, onSave }: Re
       kind: "interval",
       everyMinutes: Math.max(0, nextHours) * 60 + Math.max(0, nextMinutes),
       anchorMinuteOfDay: intervalSchedule.anchorMinuteOfDay,
+      activeWindow: intervalSchedule.activeWindow ?? schedule.activeWindow ?? null,
     });
   }
 

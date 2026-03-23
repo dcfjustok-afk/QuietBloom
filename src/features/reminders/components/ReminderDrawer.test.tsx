@@ -123,7 +123,7 @@ describe("ReminderDrawer", () => {
         title: "Walk briefly",
         description: "",
         enabled: true,
-        schedule: { kind: "interval", everyMinutes: 95, anchorMinuteOfDay: 495 },
+        schedule: { kind: "interval", everyMinutes: 95, anchorMinuteOfDay: 495, activeWindow: null },
       });
     });
   });
@@ -218,6 +218,39 @@ describe("ReminderDrawer", () => {
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText("Allowed hours must start and end at different times")).toBeDefined();
     expect(screen.getByText("21:00 to 06:00 works across midnight.")) .toBeDefined();
+  });
+
+  it("preserves allowed hours draft while editing custom interval duration", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ReminderDrawer isSaving={false} onClose={vi.fn()} onSave={onSave} open reminder={null} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Custom interval" }));
+    await user.type(screen.getByLabelText("Title"), "Late stretch");
+    await user.click(screen.getByLabelText("Use allowed hours"));
+    fireEvent.change(screen.getByLabelText("Allowed hours start"), { target: { value: "21:00" } });
+    fireEvent.change(screen.getByLabelText("Allowed hours end"), { target: { value: "06:00" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Hours" }), { target: { value: "2" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Minutes" }), { target: { value: "10" } });
+    await user.click(screen.getAllByRole("button", { name: "Save reminder" })[0]);
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith({
+        type: "hydration",
+        title: "Late stretch",
+        description: "",
+        enabled: true,
+        schedule: {
+          kind: "interval",
+          everyMinutes: 130,
+          anchorMinuteOfDay: 540,
+          activeWindow: { startMinuteOfDay: 1260, endMinuteOfDay: 360 },
+        },
+      });
+    });
   });
 
   it("updates the dashboard after editing a schedule", async () => {
