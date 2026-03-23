@@ -4,6 +4,7 @@ mod persistence;
 mod runtime;
 
 use tauri::Manager;
+use runtime::lifecycle::{reconcile_scheduler_for_app, LifecycleRecoveryReason};
 use runtime::scheduler::SchedulerRuntime;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -14,8 +15,7 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::default().build())
         .setup(|app| {
             let runtime = app.state::<SchedulerRuntime>();
-            runtime
-                .rebuild_for_app(&app.handle())
+            reconcile_scheduler_for_app(&app.handle(), &runtime, LifecycleRecoveryReason::Startup)
                 .map_err(std::io::Error::other)?;
             Ok(())
         })
@@ -28,6 +28,7 @@ pub fn run() {
             commands::scheduler::save_quiet_hours,
             commands::scheduler::pause_all_reminders,
             commands::scheduler::resume_all_reminders,
+            commands::scheduler::reconcile_scheduler,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

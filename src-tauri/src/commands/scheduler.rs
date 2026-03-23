@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::domain::schedule::build_local_candidate;
 use crate::domain::scheduler::{LocalTimeWindow, SchedulerState};
 use crate::persistence::scheduler_state::SchedulerStateRepository;
+use crate::runtime::lifecycle::{reconcile_scheduler_for_app, LifecycleRecoveryReason};
 use crate::runtime::scheduler::{SchedulerRuntime, SchedulerRuntimeSnapshot};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -134,6 +135,22 @@ pub fn resume_all_reminders(
 
     Ok(build_scheduler_snapshot(
         &saved_state,
+        &runtime_snapshot,
+        Utc::now(),
+    ))
+}
+
+#[tauri::command]
+pub fn reconcile_scheduler(
+    app: tauri::AppHandle,
+    runtime: tauri::State<SchedulerRuntime>,
+    reason: LifecycleRecoveryReason,
+) -> Result<SchedulerSnapshot, String> {
+    let runtime_snapshot = reconcile_scheduler_for_app(&app, &runtime, reason)?;
+    let scheduler_state = SchedulerStateRepository::for_app(&app)?.get()?;
+
+    Ok(build_scheduler_snapshot(
+        &scheduler_state,
         &runtime_snapshot,
         Utc::now(),
     ))
