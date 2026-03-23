@@ -15,15 +15,15 @@
 
 - [x] **SCHD-01**: User can configure an interval-based reminder that repeats after a chosen duration
 - [x] **SCHD-02**: User can configure a fixed-time reminder that repeats on selected weekdays at chosen times
-- [ ] **SCHD-03**: User can define an active window or quiet-hours rule so reminders only fire during intended parts of the day
-- [ ] **SCHD-04**: User can temporarily pause all reminders for a preset duration and have them resume automatically
+- [x] **SCHD-03**: User can define an active window or quiet-hours rule so reminders only fire during intended parts of the day
+- [x] **SCHD-04**: User can temporarily pause all reminders for a preset duration and have them resume automatically
 
 ### Delivery and Actions
 
 - [ ] **DELV-01**: User receives a native desktop notification when a reminder becomes due
 - [ ] **DELV-02**: User can snooze a due reminder and have the next due time update predictably
 - [ ] **DELV-03**: User can mark a due reminder as complete or skip it without creating duplicate reminder events
-- [ ] **DELV-04**: User can trust reminders to recover sensibly after app relaunch, sleep or wake, or short downtime
+- [x] **DELV-04**: User can trust reminders to recover sensibly after app relaunch, sleep or wake, or short downtime
 - [ ] **DELV-05**: User can see when desktop notification permission or delivery health needs attention and how to recover it
 
 ### History and Experience
@@ -67,9 +67,9 @@
 | SCHD-01 | Phase 1 | Complete |
 | SCHD-02 | Phase 1 | Complete |
 | EXPR-03 | Phase 1 | Complete |
-| SCHD-03 | Phase 2 | Pending |
-| SCHD-04 | Phase 2 | Pending |
-| DELV-04 | Phase 2 | Pending |
+| SCHD-03 | Phase 2 | Complete |
+| SCHD-04 | Phase 2 | Complete |
+| DELV-04 | Phase 2 | Complete |
 | DELV-01 | Phase 3 | Pending |
 | DELV-02 | Phase 3 | Pending |
 | DELV-03 | Phase 3 | Pending |
@@ -85,4 +85,4 @@
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-20 after 01-04 completion*
+*Last updated: 2026-03-23 after 02-01 completion*
