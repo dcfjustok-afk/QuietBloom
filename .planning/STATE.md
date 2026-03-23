@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: 3
-status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-23T02:50:59.129Z"
+current_plan: 1
+status: ready
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-03-23T03:02:47Z"
 last_activity: 2026-03-23
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -22,41 +22,42 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Users can set up and trust beautiful, low-friction reminders that fit their work rhythm.
-**Current focus:** Phase 2 - Scheduling Engine
+**Current focus:** Phase 3 - Native Delivery
 
 ## Current Position
 
-Phase: 2 of 4 (Scheduling Engine)
-Current Plan: 3
+Phase: 3 of 4 (Native Delivery)
+Current Plan: 1
 Total Plans in Phase: 3
-Status: Ready to execute
-Last Activity: 2026-03-23 — Completed 02-02 scheduler control surfaces; 02-03 recovery hardening is next
+Status: Ready to plan or execute
+Last Activity: 2026-03-23 — Completed 02-03 recovery hardening; Phase 2 is ready for verification and Phase 3 can begin
 
-Progress: [█████████░] 86%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 24 min
-- Total execution time: 2.4 hours
+- Total plans completed: 7
+- Average duration: 21 min
+- Total execution time: 2.5 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 4 | 116 min | 29 min |
-| 2 | 2 | 27 min | 14 min |
+| 2 | 3 | 34 min | 11 min |
 | 3 | 0 | 0 min | - |
 | 4 | 0 | 0 min | - |
 
 **Recent Trend:**
-- Last 5 plans: 15min, 12min, 11min, 7min, 54min
-- Trend: Stable after the Phase 1 UI foundation was in place
+- Last 5 plans: 7min, 15min, 12min, 11min, 7min
+- Trend: Stable after the Phase 2 scheduler hardening landed
 
 **Recent Metrics:**
 - Phase 02 P01 | 12min | 3 tasks | 11 files |
 | Phase 02 P02 | 15min | 3 tasks | 19 files |
+| Phase 02 P03 | 7min | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 02]: Scheduler snapshot carries quiet-hours, pause-all, and runtime summary copy so the dashboard strip stays thin and typed.
 - [Phase 02]: Reminder-level allowed hours stay embedded in the existing schedule payload and are edited only inside the reminder drawer.
 - [Phase 02]: App-wide timing state has one primary home in the dashboard strip, with only a lightweight secondary echo in Today overview.
+- [Phase 02]: Catch-up intent now persists separately from runtime blocking state so quiet, pause, and allowed-window deferral do not erase recovery semantics.
+- [Phase 02]: Startup and resume both reuse one native reconciliation path that persists state before runtime rebuild and frontend refetch.
+- [Phase 02]: Recovery UI stays lightweight inside the existing hero and row surfaces instead of adding history or diagnostics views.
 
 ### Pending Todos
 
@@ -91,10 +95,10 @@ None yet.
 ### Blockers/Concerns
 
 - Need to validate notification behavior in installed macOS builds, not only in dev
-- Need a clear overdue reminder policy for relaunch and sleep or wake recovery
+- Phase 2 verification should confirm catch-up messaging stays calm in installed macOS builds after sleep or wake
 
 ## Session Continuity
 
-Last session: 2026-03-23T02:50:59.127Z
-Stopped at: Completed 02-02-PLAN.md
-Resume file: .planning/phases/02-scheduling-engine/02-03-PLAN.md
+Last session: 2026-03-23T03:02:47Z
+Stopped at: Completed 02-03-PLAN.md
+Resume file: .planning/ROADMAP.md

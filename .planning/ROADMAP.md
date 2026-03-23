@@ -11,7 +11,7 @@ QuietBloom v1 should ship as a local-first desktop reminder tool that users can 
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Reminder Foundation** - Build the local reminder model, persistence, and base authoring flows
-- [ ] **Phase 2: Scheduling Engine** - Make reminder timing resilient, rule-driven, and recoverable
+- [x] **Phase 2: Scheduling Engine** - Make reminder timing resilient, rule-driven, and recoverable
 - [ ] **Phase 3: Native Delivery** - Deliver due reminders through desktop notifications and dependable action handling
 - [ ] **Phase 4: Daily Experience** - Add history, settings, and polished day-to-day control surfaces
 
@@ -47,7 +47,7 @@ Plans:
 Plans:
 - [x] 02-01: Implement Rust-side schedule compiler and due-queue runtime
 - [x] 02-02: Add quiet-hours, pause-all, and next-fire recalculation rules
-- [ ] 02-03: Harden recovery for relaunch, sleep or wake, and overdue reconciliation
+- [x] 02-03: Harden recovery for relaunch, sleep or wake, and overdue reconciliation
 
 ### Phase 3: Native Delivery
 **Goal**: Due reminders reach the user through native notifications with dependable snooze, skip, and complete behavior.
@@ -88,6 +88,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Reminder Foundation | 4/4 | Completed | 2026-03-20 |
-| 2. Scheduling Engine | 2/3 | In Progress | - |
+| 2. Scheduling Engine | 3/3 | Completed | 2026-03-23 |
 | 3. Native Delivery | 0/3 | Not started | - |
 | 4. Daily Experience | 0/2 | Not started | - |
