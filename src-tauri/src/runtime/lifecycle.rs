@@ -1,3 +1,5 @@
+use std::thread;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
@@ -38,6 +40,14 @@ pub fn plan_lifecycle_recovery(
     next_state
 }
 
+pub fn should_reconcile_scheduled_pause(
+    expected_pause_until: DateTime<Utc>,
+    scheduler_state: &SchedulerState,
+    now: DateTime<Utc>,
+) -> bool {
+    scheduler_state.pause_until == Some(expected_pause_until) && expected_pause_until <= now
+}
+
 pub fn build_scheduler_invalidation(
     reason: LifecycleRecoveryReason,
     snapshot: &SchedulerRuntimeSnapshot,
@@ -46,6 +56,33 @@ pub fn build_scheduler_invalidation(
         reason,
         invalidation_count: snapshot.invalidation_count,
     }
+}
+
+pub fn arm_pause_expiration_monitor(
+    app: tauri::AppHandle,
+    runtime: SchedulerRuntime,
+    pause_until: DateTime<Utc>,
+) {
+    let wait_duration = (pause_until - Utc::now())
+        .to_std()
+        .unwrap_or_default();
+
+    thread::spawn(move || {
+        if !wait_duration.is_zero() {
+            thread::sleep(wait_duration);
+        }
+
+        let Ok(repository) = SchedulerStateRepository::for_app(&app) else {
+            return;
+        };
+        let Ok(scheduler_state) = repository.get() else {
+            return;
+        };
+
+        if should_reconcile_scheduled_pause(pause_until, &scheduler_state, Utc::now()) {
+            let _ = reconcile_scheduler_for_app(&app, &runtime, LifecycleRecoveryReason::Resume);
+        }
+    });
 }
 
 pub fn reconcile_scheduler_for_app(
@@ -75,7 +112,8 @@ mod tests {
     use crate::runtime::scheduler::SchedulerRuntimeSnapshot;
 
     use super::{
-        build_scheduler_invalidation, plan_lifecycle_recovery, LifecycleRecoveryReason,
+        build_scheduler_invalidation, plan_lifecycle_recovery, should_reconcile_scheduled_pause,
+        LifecycleRecoveryReason,
     };
 
     #[test]
@@ -125,5 +163,61 @@ mod tests {
 
         assert_eq!(payload.reason, LifecycleRecoveryReason::Resume);
         assert_eq!(payload.invalidation_count, 3);
+    }
+
+    #[test]
+    fn scheduled_pause_reconciliation_only_runs_for_the_matching_expired_pause() {
+        let now = Utc::now();
+        let expected_pause_until = now - Duration::minutes(1);
+
+        assert!(should_reconcile_scheduled_pause(
+            expected_pause_until,
+            &SchedulerState {
+                quiet_hours: None,
+                pause_until: Some(expected_pause_until),
+                last_reconciled_at: Some(now - Duration::minutes(10)),
+                updated_at: now - Duration::minutes(10),
+            },
+            now,
+        ));
+
+        assert!(!should_reconcile_scheduled_pause(
+            expected_pause_until,
+            &SchedulerState {
+                quiet_hours: None,
+                pause_until: Some(now + Duration::minutes(5)),
+                last_reconciled_at: Some(now - Duration::minutes(10)),
+                updated_at: now - Duration::minutes(10),
+            },
+            now,
+        ));
+
+        assert!(!should_reconcile_scheduled_pause(
+            expected_pause_until,
+            &SchedulerState {
+                quiet_hours: None,
+                pause_until: None,
+                last_reconciled_at: Some(now - Duration::minutes(10)),
+                updated_at: now - Duration::minutes(10),
+            },
+            now,
+        ));
+    }
+
+    #[test]
+    fn scheduled_pause_reconciliation_waits_until_pause_is_due() {
+        let now = Utc::now();
+        let expected_pause_until = now + Duration::minutes(10);
+
+        assert!(!should_reconcile_scheduled_pause(
+            expected_pause_until,
+            &SchedulerState {
+                quiet_hours: None,
+                pause_until: Some(expected_pause_until),
+                last_reconciled_at: Some(now - Duration::minutes(10)),
+                updated_at: now - Duration::minutes(10),
+            },
+            now,
+        ));
     }
 }

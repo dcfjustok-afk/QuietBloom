@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use crate::domain::schedule::build_local_candidate;
 use crate::domain::scheduler::{LocalTimeWindow, SchedulerState};
 use crate::persistence::scheduler_state::SchedulerStateRepository;
-use crate::runtime::lifecycle::{reconcile_scheduler_for_app, LifecycleRecoveryReason};
+use crate::runtime::lifecycle::{
+    arm_pause_expiration_monitor, reconcile_scheduler_for_app, LifecycleRecoveryReason,
+};
 use crate::runtime::scheduler::{SchedulerRuntime, SchedulerRuntimeSnapshot};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -108,6 +110,10 @@ pub fn pause_all_reminders(
     state.pause_until = Some(resolve_pause_until(preset, Utc::now())?);
     state.updated_at = Utc::now();
     repository.save(&state)?;
+
+    if let Some(pause_until) = state.pause_until {
+        arm_pause_expiration_monitor(app.clone(), runtime.inner().clone(), pause_until);
+    }
 
     let runtime_snapshot = runtime.invalidate_for_app(&app)?;
     let saved_state = repository.get()?;

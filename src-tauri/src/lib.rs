@@ -3,8 +3,12 @@ mod domain;
 mod persistence;
 mod runtime;
 
+use chrono::Utc;
+use persistence::scheduler_state::SchedulerStateRepository;
 use tauri::Manager;
-use runtime::lifecycle::{reconcile_scheduler_for_app, LifecycleRecoveryReason};
+use runtime::lifecycle::{
+    arm_pause_expiration_monitor, reconcile_scheduler_for_app, LifecycleRecoveryReason,
+};
 use runtime::scheduler::SchedulerRuntime;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -17,6 +21,16 @@ pub fn run() {
             let runtime = app.state::<SchedulerRuntime>();
             reconcile_scheduler_for_app(&app.handle(), &runtime, LifecycleRecoveryReason::Startup)
                 .map_err(std::io::Error::other)?;
+
+            let scheduler_state = SchedulerStateRepository::for_app(&app.handle())
+                .map_err(std::io::Error::other)?
+                .get()
+                .map_err(std::io::Error::other)?;
+
+            if let Some(pause_until) = scheduler_state.pause_until.filter(|value| *value > Utc::now()) {
+                arm_pause_expiration_monitor(app.handle().clone(), runtime.inner().clone(), pause_until);
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
