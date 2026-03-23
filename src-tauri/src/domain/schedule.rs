@@ -43,6 +43,7 @@ impl Schedule {
         }
     }
 
+    #[allow(dead_code)]
     pub fn compute_next_due(&self, now: DateTime<Utc>) -> Result<DateTime<Utc>, String> {
         Ok(self
             .compute_effective_next_due(now, &SchedulerContext::default())?

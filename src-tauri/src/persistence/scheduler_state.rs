@@ -92,6 +92,7 @@ impl SchedulerStateRepository {
         .ok_or_else(|| "scheduler_state row missing".to_string())
     }
 
+    #[allow(dead_code)]
     pub fn save(&self, state: &SchedulerState) -> Result<SchedulerState, String> {
         let conn = self.open_connection()?;
         conn.execute(
