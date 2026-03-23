@@ -6,11 +6,19 @@ import {
   saveReminder,
   setReminderEnabled,
 } from "../features/reminders/api/reminders";
+import {
+  getSchedulerSnapshot,
+  pauseAllReminders,
+  resumeAllReminders,
+  saveQuietHours,
+} from "../features/reminders/api/scheduler";
 import { ReminderDrawer } from "../features/reminders/components/ReminderDrawer";
 import { ReminderListSection } from "../features/reminders/components/ReminderListSection";
 import { NextReminderCard } from "../features/reminders/components/NextReminderCard";
+import { SchedulerControlStrip } from "../features/reminders/components/SchedulerControlStrip";
 import { TodayOverviewCard } from "../features/reminders/components/TodayOverviewCard";
-import type { ReminderSummary, SaveReminderInput } from "../features/reminders/model/reminder";
+import type { LocalTimeWindow, ReminderSummary, SaveReminderInput } from "../features/reminders/model/reminder";
+import type { PauseAllPreset, SchedulerSnapshot } from "../features/reminders/model/scheduler";
 import {
   countDueToday,
   formatHeroNextDue,
@@ -25,20 +33,33 @@ export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeReminder, setActiveReminder] = useState<ReminderSummary | null>(null);
   const [saving, setSaving] = useState(false);
+  const [schedulerSnapshot, setSchedulerSnapshot] = useState<SchedulerSnapshot | null>(null);
+  const [savingQuietHoursState, setSavingQuietHoursState] = useState(false);
+  const [updatingPauseAll, setUpdatingPauseAll] = useState(false);
 
   useEffect(() => {
-    void refreshReminders();
+    void refreshDashboard(true);
   }, []);
 
-  async function refreshReminders() {
+  async function refreshDashboard(showLoading = false) {
+    if (showLoading) {
+      setLoading(true);
+    }
+
     try {
-      const nextReminders = await listReminders();
+      const [nextReminders, nextSchedulerSnapshot] = await Promise.all([
+        listReminders(),
+        getSchedulerSnapshot(),
+      ]);
       setReminders(sortReminders(nextReminders));
+      setSchedulerSnapshot(nextSchedulerSnapshot);
       setError(null);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to load reminders.");
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }
 
@@ -56,7 +77,7 @@ export function AppShell() {
     setSaving(true);
     try {
       await saveReminder(input);
-      await refreshReminders();
+      await refreshDashboard();
     } finally {
       setSaving(false);
     }
@@ -64,7 +85,7 @@ export function AppShell() {
 
   async function handleToggleReminder(reminder: ReminderSummary) {
     await setReminderEnabled(reminder.id, !reminder.enabled);
-    await refreshReminders();
+    await refreshDashboard();
   }
 
   async function handleDeleteReminder(reminder: ReminderSummary) {
@@ -73,7 +94,53 @@ export function AppShell() {
     }
 
     await deleteReminder(reminder.id);
-    await refreshReminders();
+    await refreshDashboard();
+  }
+
+  async function handleSaveQuietHours(quietHours: LocalTimeWindow | null) {
+    setSavingQuietHoursState(true);
+    try {
+      await saveQuietHours(quietHours);
+      await refreshDashboard();
+    } finally {
+      setSavingQuietHoursState(false);
+    }
+  }
+
+  async function handlePauseAll(preset: PauseAllPreset) {
+    setUpdatingPauseAll(true);
+    try {
+      await pauseAllReminders(preset);
+      await refreshDashboard();
+    } finally {
+      setUpdatingPauseAll(false);
+    }
+  }
+
+  async function handleResumeNow() {
+    setUpdatingPauseAll(true);
+    try {
+      await resumeAllReminders();
+      await refreshDashboard();
+    } finally {
+      setUpdatingPauseAll(false);
+    }
+  }
+
+  function getSchedulerFact(snapshot: SchedulerSnapshot | null): string | null {
+    if (!snapshot) {
+      return null;
+    }
+
+    if (snapshot.pauseAll.isPaused) {
+      return snapshot.pauseAll.summary;
+    }
+
+    if (snapshot.quietHours.enabled) {
+      return `Quiet hours ${snapshot.quietHours.summary}`;
+    }
+
+    return null;
   }
 
   const nextReminder = reminders.find((reminder) => reminder.enabled && reminder.nextDueAt) ?? null;
@@ -89,7 +156,7 @@ export function AppShell() {
           <div className="app-shell__identity">
             <span className="app-shell__eyebrow">QuietBloom</span>
             <h1 className="app-shell__title">A calm dashboard for the rhythms that keep you steady.</h1>
-            <p className="app-shell__status">Today holds {enabledCount} active reminders across hydration, movement, and eye-rest habits.</p>
+            <p className="app-shell__status">Today holds {enabledCount} active reminders with {dueTodayCount} upcoming touchpoints still in view.</p>
           </div>
           <div className="app-shell__actions">
             <button className="button button--primary" type="button" onClick={openNewReminder}>
@@ -101,8 +168,17 @@ export function AppShell() {
         {loading ? <div className="app-shell__feedback">Loading today&apos;s reminder rhythm…</div> : null}
         {error ? <div className="app-shell__feedback">{error}</div> : null}
 
-        {!loading && !error ? (
+        {!loading && !error && schedulerSnapshot ? (
           <div className="dashboard">
+            <SchedulerControlStrip
+              isSavingQuietHours={savingQuietHoursState}
+              isUpdatingPauseAll={updatingPauseAll}
+              onPauseAll={handlePauseAll}
+              onResumeNow={handleResumeNow}
+              onSaveQuietHours={handleSaveQuietHours}
+              snapshot={schedulerSnapshot}
+            />
+
             <section className="hero-grid">
               <NextReminderCard
                 detail={nextDue.detail}
@@ -114,6 +190,7 @@ export function AppShell() {
                 dueTodayCount={dueTodayCount}
                 enabledCount={enabledCount}
                 scheduleMix={scheduleMix}
+                schedulerFact={getSchedulerFact(schedulerSnapshot)}
                 totalCount={reminders.length}
               />
             </section>

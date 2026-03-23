@@ -73,7 +73,7 @@ describe("SchedulerControlStrip", () => {
 
     expect(topBar).not.toBeNull();
     expect(controlStrip).toBeDefined();
-    expect(screen.getByRole("button", { name: "New reminder" })).toBeDefined();
+    expect(screen.getAllByRole("button", { name: "New reminder" }).length).toBeGreaterThan(0);
   });
 
   it("pauses reminders with exactly four presets and a resume action", async () => {

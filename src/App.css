@@ -160,6 +160,124 @@ button {
   gap: 32px;
 }
 
+.scheduler-strip {
+  padding: 16px 24px;
+}
+
+.scheduler-strip__tiles {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.scheduler-strip__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.scheduler-strip__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scheduler-strip__label {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.scheduler-strip__summary {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.scheduler-strip__state {
+  margin: 0;
+  color: var(--text-body);
+}
+
+.scheduler-strip__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.scheduler-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.scheduler-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.scheduler-panel__helper {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 0.92rem;
+}
+
+.scheduler-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.scheduler-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-body);
+}
+
+.scheduler-panel--menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.scheduler-menu__item {
+  min-height: 48px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: rgba(106, 132, 114, 0.1);
+  color: var(--text-strong);
+}
+
+.scheduler-runtime {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.scheduler-runtime--paused {
+  border-color: rgba(106, 132, 114, 0.34);
+}
+
+.scheduler-runtime__title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.scheduler-runtime__detail {
+  margin: 6px 0 0;
+  color: var(--text-body);
+}
+
 .hero-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
@@ -293,6 +411,11 @@ button {
 
 .today-overview-card {
   padding: 32px;
+}
+
+.today-overview-card__fact {
+  margin: 12px 0 0;
+  color: var(--text-body);
 }
 
 .overview-grid {
@@ -726,6 +849,10 @@ button {
 }
 
 @media (max-width: 960px) {
+  .scheduler-strip__tiles {
+    grid-template-columns: 1fr;
+  }
+
   .hero-grid {
     grid-template-columns: 1fr;
   }
@@ -763,6 +890,8 @@ button {
   }
 
   .preset-grid,
+  .scheduler-panel__grid,
+  .scheduler-panel--menu,
   .advanced-grid--interval,
   .weekday-grid,
   .time-input-row {

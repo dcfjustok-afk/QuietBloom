@@ -3,6 +3,7 @@ type TodayOverviewCardProps = {
   dueTodayCount: number;
   totalCount: number;
   scheduleMix: string;
+  schedulerFact?: string | null;
 };
 
 export function TodayOverviewCard({
@@ -10,6 +11,7 @@ export function TodayOverviewCard({
   dueTodayCount,
   totalCount,
   scheduleMix,
+  schedulerFact,
 }: TodayOverviewCardProps) {
   return (
     <section className="surface-card today-overview-card">
@@ -31,6 +33,7 @@ export function TodayOverviewCard({
       <p className="section-copy">
         {totalCount === 0 ? "Nothing is scheduled yet." : `${totalCount} reminders in view · ${scheduleMix}`}
       </p>
+      {schedulerFact ? <p className="today-overview-card__fact">App-wide timing: {schedulerFact}</p> : null}
     </section>
   );
 }
