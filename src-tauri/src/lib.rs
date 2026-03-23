@@ -24,6 +24,10 @@ pub fn run() {
             commands::reminders::save_reminder,
             commands::reminders::delete_reminder,
             commands::reminders::set_reminder_enabled,
+            commands::scheduler::get_scheduler_snapshot,
+            commands::scheduler::save_quiet_hours,
+            commands::scheduler::pause_all_reminders,
+            commands::scheduler::resume_all_reminders,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

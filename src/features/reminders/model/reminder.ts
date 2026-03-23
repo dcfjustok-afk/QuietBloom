@@ -8,16 +8,23 @@ export const reminderTypes = [
 
 export type ReminderType = (typeof reminderTypes)[number];
 
+export type LocalTimeWindow = {
+  startMinuteOfDay: number;
+  endMinuteOfDay: number;
+};
+
 export type IntervalSchedule = {
   kind: "interval";
   everyMinutes: number;
   anchorMinuteOfDay: number;
+  activeWindow?: LocalTimeWindow | null;
 };
 
 export type FixedTimeSchedule = {
   kind: "fixed_time";
   weekdays: number[];
   times: number[];
+  activeWindow?: LocalTimeWindow | null;
 };
 
 export type ReminderSchedule = IntervalSchedule | FixedTimeSchedule;
@@ -25,22 +32,26 @@ export type ReminderSchedule = IntervalSchedule | FixedTimeSchedule;
 export function createIntervalSchedule(
   everyMinutes: number,
   anchorMinuteOfDay: number,
+  activeWindow?: LocalTimeWindow | null,
 ): IntervalSchedule {
   return {
     kind: "interval",
     everyMinutes,
     anchorMinuteOfDay,
+    activeWindow: activeWindow ?? null,
   };
 }
 
 export function createFixedTimeSchedule(
   weekdays: number[],
   times: number[],
+  activeWindow?: LocalTimeWindow | null,
 ): FixedTimeSchedule {
   return {
     kind: "fixed_time",
     weekdays,
     times,
+    activeWindow: activeWindow ?? null,
   };
 }
 
@@ -102,13 +113,17 @@ export function parseTimeString(value: string): number {
 }
 
 export function describeReminderSchedule(schedule: ReminderSchedule): string {
+  const activeWindowSummary = schedule.activeWindow
+    ? ` · Allowed ${formatMinutesOfDay(schedule.activeWindow.startMinuteOfDay)}-${formatMinutesOfDay(schedule.activeWindow.endMinuteOfDay)}`
+    : "";
+
   if (schedule.kind === "interval") {
-    return `Every ${schedule.everyMinutes} min from ${formatMinutesOfDay(schedule.anchorMinuteOfDay)}`;
+    return `Every ${schedule.everyMinutes} min from ${formatMinutesOfDay(schedule.anchorMinuteOfDay)}${activeWindowSummary}`;
   }
 
   const weekdays = schedule.weekdays
     .map((weekday) => weekdayLabels[weekday - 1] ?? `Day ${weekday}`)
     .join(", ");
   const times = schedule.times.map(formatMinutesOfDay).join(", ");
-  return `${weekdays} at ${times}`;
+  return `${weekdays} at ${times}${activeWindowSummary}`;
 }

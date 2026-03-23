@@ -9,6 +9,16 @@ import {
   type SaveReminderInput,
 } from "../model/reminder";
 
+const activeWindowSchema = z
+  .object({
+    startMinuteOfDay: z.number().int().min(0).max(1439),
+    endMinuteOfDay: z.number().int().min(0).max(1439),
+  })
+  .refine((value) => value.startMinuteOfDay !== value.endMinuteOfDay, {
+    message: "Allowed hours must start and end at different times",
+    path: ["endMinuteOfDay"],
+  });
+
 export const intervalSchedulePresets = [
   {
     id: "every-30",
@@ -57,12 +67,14 @@ const intervalScheduleSchema = z.object({
   kind: z.literal("interval"),
   everyMinutes: z.number().int().min(5).max(1440),
   anchorMinuteOfDay: z.number().int().min(0).max(1439),
+  activeWindow: activeWindowSchema.nullish(),
 });
 
 const fixedTimeScheduleSchema = z.object({
   kind: z.literal("fixed_time"),
   weekdays: z.array(z.number().int().min(1).max(7)).min(1),
   times: z.array(z.number().int().min(0).max(1439)).min(1),
+  activeWindow: activeWindowSchema.nullish(),
 });
 
 export const reminderScheduleSchema = z.discriminatedUnion("kind", [

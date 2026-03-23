@@ -4,6 +4,7 @@ import {
   describeReminderSchedule,
   formatMinutesOfDay,
   parseTimeString,
+  type LocalTimeWindow,
   type ReminderSchedule,
   type ReminderSummary,
   type ReminderType,
@@ -15,11 +16,13 @@ type NativeReminderSchedule =
       kind: "interval";
       everyMinutes: number;
       anchorMinuteOfDay: number;
+      activeWindow?: LocalTimeWindow | null;
     }
   | {
       kind: "fixed_time";
       weekdays: number[];
       times: string[];
+      activeWindow?: LocalTimeWindow | null;
     };
 
 type NativeReminder = {
@@ -75,13 +78,17 @@ function toNativeSaveReminderInput(reminder: SaveReminderInput): NativeSaveRemin
 
 function toNativeSchedule(schedule: ReminderSchedule): NativeReminderSchedule {
   if (schedule.kind === "interval") {
-    return schedule;
+    return {
+      ...schedule,
+      activeWindow: schedule.activeWindow ?? null,
+    };
   }
 
   return {
     kind: "fixed_time",
     weekdays: schedule.weekdays,
     times: schedule.times.map(formatMinutesOfDay),
+    activeWindow: schedule.activeWindow ?? null,
   };
 }
 
@@ -102,12 +109,16 @@ function toReminderSummary(reminder: NativeReminder): ReminderSummary {
 
 function toReminderSchedule(schedule: NativeReminderSchedule): ReminderSchedule {
   if (schedule.kind === "interval") {
-    return schedule;
+    return {
+      ...schedule,
+      activeWindow: schedule.activeWindow ?? null,
+    };
   }
 
   return {
     kind: "fixed_time",
     weekdays: schedule.weekdays,
     times: schedule.times.map(parseTimeString),
+    activeWindow: schedule.activeWindow ?? null,
   };
 }
