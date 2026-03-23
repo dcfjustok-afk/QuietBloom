@@ -7,6 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use tauri::Manager;
 
 use crate::domain::reminder::{Reminder, ReminderDraft};
+use crate::domain::schedule::Schedule;
 use crate::domain::scheduler::{ReminderRuntimeStatus, SchedulerContext};
 
 const CREATE_REMINDERS_TABLE: &str = r#"
@@ -29,6 +30,14 @@ CREATE INDEX IF NOT EXISTS idx_reminders_enabled_next_due_at
 ON reminders (enabled, next_due_at)
 "#;
 
+const ADD_BASE_DUE_AT_COLUMN: &str = r#"
+ALTER TABLE reminders ADD COLUMN base_due_at TEXT
+"#;
+
+const ADD_RUNTIME_STATUS_COLUMN: &str = r#"
+ALTER TABLE reminders ADD COLUMN runtime_status TEXT NOT NULL DEFAULT 'scheduled'
+"#;
+
 #[derive(Debug, Clone)]
 pub struct ReminderRepository {
     db_path: PathBuf,
@@ -37,10 +46,31 @@ pub struct ReminderRepository {
 impl ReminderRepository {
     pub fn refresh_all(
         &self,
-        _context: &SchedulerContext,
-        _now: DateTime<Utc>,
+        context: &SchedulerContext,
+        now: DateTime<Utc>,
     ) -> Result<Vec<Reminder>, String> {
-        self.list()
+        let conn = self.open_connection()?;
+        let mut reminders = self.list_with_conn(&conn)?;
+
+        for reminder in &mut reminders {
+            let (next_due_at, base_due_at, runtime_status) =
+                compute_runtime_fields(reminder.enabled, &reminder.schedule, now, context)?;
+            self.persist_runtime_fields(
+                &conn,
+                reminder.id,
+                next_due_at,
+                base_due_at,
+                &runtime_status,
+                now,
+            )?;
+            reminder.next_due_at = next_due_at;
+            reminder.base_due_at = base_due_at;
+            reminder.runtime_status = runtime_status;
+            reminder.updated_at = now;
+        }
+
+        reminders.sort_by(compare_reminders);
+        Ok(reminders)
     }
 
     pub fn for_app(app: &tauri::AppHandle) -> Result<Self, String> {
@@ -62,21 +92,7 @@ impl ReminderRepository {
 
     pub fn list(&self) -> Result<Vec<Reminder>, String> {
         let conn = self.open_connection()?;
-        let mut statement = conn
-            .prepare(
-                "SELECT id, type, title, description, enabled, schedule_kind, schedule_json, next_due_at, created_at, updated_at FROM reminders",
-            )
-            .map_err(|error| error.to_string())?;
-        let rows = statement
-            .query_map([], |row| self.map_row(row))
-            .map_err(|error| error.to_string())?;
-
-        let mut reminders = Vec::new();
-        for row in rows {
-            let mut reminder = row.map_err(|error| error.to_string())?;
-            self.refresh_next_due(&conn, &mut reminder, &SchedulerContext::default())?;
-            reminders.push(reminder);
-        }
+        let mut reminders = self.list_with_conn(&conn)?;
 
         reminders.sort_by(compare_reminders);
         Ok(reminders)
@@ -86,15 +102,8 @@ impl ReminderRepository {
         let draft = draft.normalized()?;
         let now = Utc::now();
         let schedule_json = serde_json::to_string(&draft.schedule).map_err(|error| error.to_string())?;
-        let decision = if draft.enabled() {
-            Some(
-                draft
-                    .schedule
-                    .compute_effective_next_due(now, &SchedulerContext::default())?,
-            )
-        } else {
-            None
-        };
+        let (next_due_at, base_due_at, runtime_status) =
+            compute_runtime_fields(draft.enabled(), &draft.schedule, now, &SchedulerContext::default())?;
 
         let mut conn = self.open_connection()?;
         let tx = conn.transaction().map_err(|error| error.to_string())?;
@@ -111,7 +120,7 @@ impl ReminderRepository {
                 .ok_or_else(|| format!("reminder {} not found", id))?;
 
             tx.execute(
-                "UPDATE reminders SET type = ?1, title = ?2, description = ?3, enabled = ?4, schedule_kind = ?5, schedule_json = ?6, next_due_at = ?7, created_at = ?8, updated_at = ?9 WHERE id = ?10",
+                "UPDATE reminders SET type = ?1, title = ?2, description = ?3, enabled = ?4, schedule_kind = ?5, schedule_json = ?6, next_due_at = ?7, base_due_at = ?8, runtime_status = ?9, created_at = ?10, updated_at = ?11 WHERE id = ?12",
                 params![
                     draft.reminder_type,
                     draft.title,
@@ -119,9 +128,9 @@ impl ReminderRepository {
                     bool_to_int(draft.enabled()),
                     draft.schedule.kind(),
                     schedule_json,
-                    decision
-                        .as_ref()
-                        .map(|value| value.effective_due_at.to_rfc3339()),
+                    next_due_at.map(|value| value.to_rfc3339()),
+                    base_due_at.map(|value| value.to_rfc3339()),
+                    runtime_status.as_str(),
                     created_at,
                     now.to_rfc3339(),
                     id,
@@ -132,7 +141,7 @@ impl ReminderRepository {
             id
         } else {
             tx.execute(
-                "INSERT INTO reminders (type, title, description, enabled, schedule_kind, schedule_json, next_due_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                "INSERT INTO reminders (type, title, description, enabled, schedule_kind, schedule_json, next_due_at, base_due_at, runtime_status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
                     draft.reminder_type,
                     draft.title,
@@ -140,9 +149,9 @@ impl ReminderRepository {
                     bool_to_int(draft.enabled()),
                     draft.schedule.kind(),
                     schedule_json,
-                    decision
-                        .as_ref()
-                        .map(|value| value.effective_due_at.to_rfc3339()),
+                    next_due_at.map(|value| value.to_rfc3339()),
+                    base_due_at.map(|value| value.to_rfc3339()),
+                    runtime_status.as_str(),
                     now.to_rfc3339(),
                     now.to_rfc3339(),
                 ],
@@ -174,30 +183,25 @@ impl ReminderRepository {
         reminder.enabled = enabled;
         reminder.updated_at = Utc::now();
 
-        let decision = if enabled {
-            Some(
-                reminder
-                    .schedule
-                    .compute_effective_next_due(reminder.updated_at, &SchedulerContext::default())?,
-            )
-        } else {
-            None
-        };
-
-        reminder.base_due_at = decision.as_ref().map(|value| value.base_due_at);
-        reminder.runtime_status = decision
-            .as_ref()
-            .map(|value| value.runtime_status.clone())
-            .unwrap_or(ReminderRuntimeStatus::Scheduled);
-        reminder.next_due_at = decision.as_ref().map(|value| value.effective_due_at);
+        let (next_due_at, base_due_at, runtime_status) = compute_runtime_fields(
+            enabled,
+            &reminder.schedule,
+            reminder.updated_at,
+            &SchedulerContext::default(),
+        )?;
+        reminder.base_due_at = base_due_at;
+        reminder.runtime_status = runtime_status.clone();
+        reminder.next_due_at = next_due_at;
 
         let conn = self.open_connection()?;
         let affected = conn
             .execute(
-                "UPDATE reminders SET enabled = ?1, next_due_at = ?2, updated_at = ?3 WHERE id = ?4",
+                "UPDATE reminders SET enabled = ?1, next_due_at = ?2, base_due_at = ?3, runtime_status = ?4, updated_at = ?5 WHERE id = ?6",
                 params![
                     bool_to_int(enabled),
                     reminder.next_due_at.map(|value| value.to_rfc3339()),
+                    reminder.base_due_at.map(|value| value.to_rfc3339()),
+                    runtime_status.as_str(),
                     reminder.updated_at.to_rfc3339(),
                     id,
                 ],
@@ -221,6 +225,13 @@ impl ReminderRepository {
             .map_err(|error| error.to_string())?;
         conn.execute_batch(CREATE_REMINDERS_INDEX)
             .map_err(|error| error.to_string())?;
+        ensure_column(&conn, "reminders", "base_due_at", ADD_BASE_DUE_AT_COLUMN)?;
+        ensure_column(&conn, "reminders", "runtime_status", ADD_RUNTIME_STATUS_COLUMN)?;
+        conn.execute(
+            "UPDATE reminders SET base_due_at = COALESCE(base_due_at, next_due_at), runtime_status = COALESCE(NULLIF(runtime_status, ''), 'scheduled')",
+            [],
+        )
+        .map_err(|error| error.to_string())?;
         Ok(())
     }
 
@@ -230,53 +241,52 @@ impl ReminderRepository {
 
     fn get(&self, id: i64) -> Result<Reminder, String> {
         let conn = self.open_connection()?;
-        let mut reminder = self.get_with_conn(&conn, id)?;
-        self.refresh_next_due(&conn, &mut reminder, &SchedulerContext::default())?;
-        Ok(reminder)
+        self.get_with_conn(&conn, id)
     }
 
     fn get_with_conn(&self, conn: &Connection, id: i64) -> Result<Reminder, String> {
         conn.query_row(
-            "SELECT id, type, title, description, enabled, schedule_kind, schedule_json, next_due_at, created_at, updated_at FROM reminders WHERE id = ?1",
+            "SELECT id, type, title, description, enabled, schedule_kind, schedule_json, next_due_at, base_due_at, runtime_status, created_at, updated_at FROM reminders WHERE id = ?1",
             [id],
             |row| self.map_row(row),
         )
         .map_err(|error| error.to_string())
     }
 
-    fn refresh_next_due(
-        &self,
-        conn: &Connection,
-        reminder: &mut Reminder,
-        context: &SchedulerContext,
-    ) -> Result<(), String> {
-        let decision = if reminder.enabled {
-            Some(reminder.schedule.compute_effective_next_due(Utc::now(), context)?)
-        } else {
-            None
-        };
-        let expected = decision.as_ref().map(|value| value.effective_due_at);
-
-        if reminder.next_due_at != expected {
-            let updated_at = Utc::now();
-            conn.execute(
-                "UPDATE reminders SET next_due_at = ?1, updated_at = ?2 WHERE id = ?3",
-                params![
-                    expected.map(|value| value.to_rfc3339()),
-                    updated_at.to_rfc3339(),
-                    reminder.id,
-                ],
+    fn list_with_conn(&self, conn: &Connection) -> Result<Vec<Reminder>, String> {
+        let mut statement = conn
+            .prepare(
+                "SELECT id, type, title, description, enabled, schedule_kind, schedule_json, next_due_at, base_due_at, runtime_status, created_at, updated_at FROM reminders",
             )
             .map_err(|error| error.to_string())?;
-            reminder.next_due_at = expected;
-            reminder.updated_at = updated_at;
-        }
+        let rows = statement
+            .query_map([], |row| self.map_row(row))
+            .map_err(|error| error.to_string())?;
 
-        reminder.base_due_at = decision.as_ref().map(|value| value.base_due_at);
-        reminder.runtime_status = decision
-            .as_ref()
-            .map(|value| value.runtime_status.clone())
-            .unwrap_or(ReminderRuntimeStatus::Scheduled);
+        rows.map(|row| row.map_err(|error| error.to_string()))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    fn persist_runtime_fields(
+        &self,
+        conn: &Connection,
+        reminder_id: i64,
+        next_due_at: Option<DateTime<Utc>>,
+        base_due_at: Option<DateTime<Utc>>,
+        runtime_status: &ReminderRuntimeStatus,
+        now: DateTime<Utc>,
+    ) -> Result<(), String> {
+        conn.execute(
+            "UPDATE reminders SET next_due_at = ?1, base_due_at = ?2, runtime_status = ?3, updated_at = ?4 WHERE id = ?5",
+            params![
+                next_due_at.map(|value| value.to_rfc3339()),
+                base_due_at.map(|value| value.to_rfc3339()),
+                runtime_status.as_str(),
+                now.to_rfc3339(),
+                reminder_id,
+            ],
+        )
+        .map_err(|error| error.to_string())?;
 
         Ok(())
     }
@@ -284,9 +294,16 @@ impl ReminderRepository {
     fn map_row(&self, row: &rusqlite::Row<'_>) -> rusqlite::Result<Reminder> {
         let schedule_json: String = row.get(6)?;
         let next_due_at: Option<String> = row.get(7)?;
-        let created_at: String = row.get(8)?;
-        let updated_at: String = row.get(9)?;
+        let base_due_at: Option<String> = row.get(8)?;
+        let runtime_status: String = row.get(9)?;
+        let created_at: String = row.get(10)?;
+        let updated_at: String = row.get(11)?;
         let parsed_next_due_at = next_due_at
+            .as_ref()
+            .map(|value| parse_datetime(value))
+            .transpose()
+            .map_err(json_error)?;
+        let parsed_base_due_at = base_due_at
             .as_ref()
             .map(|value| parse_datetime(value))
             .transpose()
@@ -300,8 +317,8 @@ impl ReminderRepository {
             enabled: row.get::<_, i64>(4)? != 0,
             schedule: serde_json::from_str(&schedule_json).map_err(json_error)?,
             next_due_at: parsed_next_due_at,
-            base_due_at: parsed_next_due_at,
-            runtime_status: ReminderRuntimeStatus::Scheduled,
+            base_due_at: parsed_base_due_at,
+            runtime_status: ReminderRuntimeStatus::from_str(&runtime_status).map_err(json_error)?,
             created_at: parse_datetime(&created_at).map_err(json_error)?,
             updated_at: parse_datetime(&updated_at).map_err(json_error)?,
         })
@@ -325,6 +342,47 @@ where
 
 fn bool_to_int(value: bool) -> i64 {
     if value { 1 } else { 0 }
+}
+
+fn compute_runtime_fields(
+    enabled: bool,
+    schedule: &Schedule,
+    now: DateTime<Utc>,
+    context: &SchedulerContext,
+) -> Result<(Option<DateTime<Utc>>, Option<DateTime<Utc>>, ReminderRuntimeStatus), String> {
+    if !enabled {
+        return Ok((None, None, ReminderRuntimeStatus::Scheduled));
+    }
+
+    let decision = schedule.compute_effective_next_due(now, context)?;
+    Ok((
+        Some(decision.effective_due_at),
+        Some(decision.base_due_at),
+        decision.runtime_status,
+    ))
+}
+
+fn ensure_column(
+    conn: &Connection,
+    table_name: &str,
+    column_name: &str,
+    alter_statement: &str,
+) -> Result<(), String> {
+    let mut statement = conn
+        .prepare(&format!("PRAGMA table_info({table_name})"))
+        .map_err(|error| error.to_string())?;
+    let columns = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| error.to_string())?;
+
+    for column in columns {
+        if column.map_err(|error| error.to_string())? == column_name {
+            return Ok(());
+        }
+    }
+
+    conn.execute_batch(alter_statement)
+        .map_err(|error| error.to_string())
 }
 
 fn compare_reminders(left: &Reminder, right: &Reminder) -> Ordering {

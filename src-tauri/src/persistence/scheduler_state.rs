@@ -1,11 +1,11 @@
 use std::fs;
 use std::path::PathBuf;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use tauri::Manager;
 
-use crate::domain::scheduler::SchedulerState;
+use crate::domain::scheduler::{LocalTimeWindow, SchedulerState};
 
 const CREATE_SCHEDULER_STATE_TABLE: &str = r#"
 CREATE TABLE IF NOT EXISTS scheduler_state (
@@ -42,16 +42,70 @@ impl SchedulerStateRepository {
     }
 
     pub fn get(&self) -> Result<SchedulerState, String> {
-        Ok(SchedulerState {
-            quiet_hours: None,
-            pause_until: None,
-            last_reconciled_at: None,
-            updated_at: Utc::now(),
-        })
+        let conn = self.open_connection()?;
+        conn.query_row(
+            "SELECT quiet_hours_start_minute, quiet_hours_end_minute, pause_until_utc, last_reconciled_at_utc, updated_at_utc FROM scheduler_state WHERE id = 1",
+            [],
+            |row| {
+                let quiet_hours_start: Option<u16> = row.get(0)?;
+                let quiet_hours_end: Option<u16> = row.get(1)?;
+                let pause_until: Option<String> = row.get(2)?;
+                let last_reconciled_at: Option<String> = row.get(3)?;
+                let updated_at: String = row.get(4)?;
+
+                let quiet_hours = match (quiet_hours_start, quiet_hours_end) {
+                    (Some(start_minute_of_day), Some(end_minute_of_day)) => Some(LocalTimeWindow {
+                        start_minute_of_day,
+                        end_minute_of_day,
+                    }),
+                    (None, None) => None,
+                    _ => {
+                        return Err(rusqlite::Error::FromSqlConversionFailure(
+                            0,
+                            rusqlite::types::Type::Integer,
+                            Box::new(std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                "scheduler_state quiet hours are partially populated",
+                            )),
+                        ));
+                    }
+                };
+
+                Ok(SchedulerState {
+                    quiet_hours,
+                    pause_until: pause_until
+                        .as_deref()
+                        .map(parse_datetime)
+                        .transpose()
+                        .map_err(json_error)?,
+                    last_reconciled_at: last_reconciled_at
+                        .as_deref()
+                        .map(parse_datetime)
+                        .transpose()
+                        .map_err(json_error)?,
+                    updated_at: parse_datetime(&updated_at).map_err(json_error)?,
+                })
+            },
+        )
+        .optional()
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "scheduler_state row missing".to_string())
     }
 
     pub fn save(&self, state: &SchedulerState) -> Result<SchedulerState, String> {
-        let _ = state;
+        let conn = self.open_connection()?;
+        conn.execute(
+            "INSERT INTO scheduler_state (id, quiet_hours_start_minute, quiet_hours_end_minute, pause_until_utc, last_reconciled_at_utc, updated_at_utc) VALUES (1, ?1, ?2, ?3, ?4, ?5) ON CONFLICT(id) DO UPDATE SET quiet_hours_start_minute = excluded.quiet_hours_start_minute, quiet_hours_end_minute = excluded.quiet_hours_end_minute, pause_until_utc = excluded.pause_until_utc, last_reconciled_at_utc = excluded.last_reconciled_at_utc, updated_at_utc = excluded.updated_at_utc",
+            params![
+                state.quiet_hours.as_ref().map(|value| i64::from(value.start_minute_of_day)),
+                state.quiet_hours.as_ref().map(|value| i64::from(value.end_minute_of_day)),
+                state.pause_until.map(|value| value.to_rfc3339()),
+                state.last_reconciled_at.map(|value| value.to_rfc3339()),
+                state.updated_at.to_rfc3339(),
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+
         self.get()
     }
 
@@ -63,12 +117,32 @@ impl SchedulerStateRepository {
         let conn = self.open_connection()?;
         conn.execute_batch(CREATE_SCHEDULER_STATE_TABLE)
             .map_err(|error| error.to_string())?;
+        conn.execute(
+            "INSERT INTO scheduler_state (id, updated_at_utc) SELECT 1, ?1 WHERE NOT EXISTS (SELECT 1 FROM scheduler_state WHERE id = 1)",
+            [Utc::now().to_rfc3339()],
+        )
+        .map_err(|error| error.to_string())?;
         Ok(())
     }
 
     fn open_connection(&self) -> Result<Connection, String> {
         Connection::open(&self.db_path).map_err(|error| error.to_string())
     }
+}
+
+fn parse_datetime(value: &str) -> Result<DateTime<Utc>, chrono::ParseError> {
+    DateTime::parse_from_rfc3339(value).map(|date| date.with_timezone(&Utc))
+}
+
+fn json_error<E>(error: E) -> rusqlite::Error
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    rusqlite::Error::FromSqlConversionFailure(
+        0,
+        rusqlite::types::Type::Text,
+        Box::new(error),
+    )
 }
 
 #[cfg(test)]

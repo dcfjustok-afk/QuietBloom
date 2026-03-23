@@ -65,6 +65,32 @@ pub enum ReminderRuntimeStatus {
     CatchUp,
 }
 
+impl ReminderRuntimeStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Scheduled => "scheduled",
+            Self::DeferredByActiveWindow => "deferred_by_active_window",
+            Self::DeferredByQuietHours => "deferred_by_quiet_hours",
+            Self::Paused => "paused",
+            Self::CatchUp => "catch_up",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Result<Self, std::io::Error> {
+        match value {
+            "scheduled" => Ok(Self::Scheduled),
+            "deferred_by_active_window" => Ok(Self::DeferredByActiveWindow),
+            "deferred_by_quiet_hours" => Ok(Self::DeferredByQuietHours),
+            "paused" => Ok(Self::Paused),
+            "catch_up" => Ok(Self::CatchUp),
+            other => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("unknown runtime status: {other}"),
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct EffectiveNextDue {
