@@ -172,7 +172,10 @@ mod tests {
     use crate::domain::reminder::Reminder;
     use crate::domain::schedule::{FixedTimeSchedule, IntervalSchedule, Schedule};
 
-    use super::{LocalTimeWindow, ReminderRuntimeStatus, SchedulerContext};
+    use super::{
+        reconcile_effective_next_due, LocalTimeWindow, NextDueKind, ReminderRuntimeStatus,
+        SchedulerContext, SchedulerState,
+    };
 
     fn local_utc(year: i32, month: u32, day: u32, hour: u32, minute: u32) -> DateTime<Utc> {
         let naive = NaiveDate::from_ymd_opt(year, month, day)
@@ -245,6 +248,7 @@ mod tests {
             }),
             next_due_at: Some(local_utc(2026, 3, 23, 10, 0)),
             base_due_at: Some(local_utc(2026, 3, 23, 9, 0)),
+            next_due_kind: NextDueKind::Normal,
             runtime_status: ReminderRuntimeStatus::DeferredByActiveWindow,
             created_at: local_utc(2026, 3, 23, 8, 0),
             updated_at: local_utc(2026, 3, 23, 8, 5),
@@ -253,6 +257,103 @@ mod tests {
         let json = serde_json::to_value(&reminder).unwrap();
 
         assert_eq!(json.get("baseDueAt").and_then(|value| value.as_str()), Some("2026-03-23T01:00:00Z"));
+        assert_eq!(json.get("nextDueKind").and_then(|value| value.as_str()), Some("normal"));
         assert_eq!(json.get("runtimeStatus").and_then(|value| value.as_str()), Some("deferred_by_active_window"));
+    }
+
+    #[test]
+    fn reconcile_gap_short_interrupt_collapses_to_one_catch_up_occurrence() {
+        let schedule = Schedule::Interval(IntervalSchedule {
+            every_minutes: 60,
+            anchor_minute_of_day: 540,
+            active_window: None,
+        });
+        let now = local_utc(2026, 3, 23, 11, 5);
+        let scheduler_state = SchedulerState {
+            quiet_hours: None,
+            pause_until: None,
+            last_reconciled_at: Some(local_utc(2026, 3, 23, 10, 0)),
+            updated_at: now,
+        };
+
+        let decision = reconcile_effective_next_due(
+            &schedule,
+            true,
+            Some(local_utc(2026, 3, 23, 10, 30)),
+            &scheduler_state,
+            now,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(decision.base_due_at, now);
+        assert_eq!(decision.effective_due_at, now);
+        assert_eq!(decision.next_due_kind, NextDueKind::CatchUp);
+        assert_eq!(decision.runtime_status, ReminderRuntimeStatus::Scheduled);
+    }
+
+    #[test]
+    fn reconcile_gap_long_interrupt_recomputes_forward_without_replay() {
+        let schedule = Schedule::Interval(IntervalSchedule {
+            every_minutes: 60,
+            anchor_minute_of_day: 540,
+            active_window: None,
+        });
+        let now = local_utc(2026, 3, 23, 11, 5);
+        let scheduler_state = SchedulerState {
+            quiet_hours: None,
+            pause_until: None,
+            last_reconciled_at: Some(local_utc(2026, 3, 23, 8, 30)),
+            updated_at: now,
+        };
+
+        let decision = reconcile_effective_next_due(
+            &schedule,
+            true,
+            Some(local_utc(2026, 3, 23, 9, 30)),
+            &scheduler_state,
+            now,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(decision.base_due_at, local_utc(2026, 3, 23, 12, 0));
+        assert_eq!(decision.effective_due_at, local_utc(2026, 3, 23, 12, 0));
+        assert_eq!(decision.next_due_kind, NextDueKind::Normal);
+        assert_eq!(decision.runtime_status, ReminderRuntimeStatus::Scheduled);
+    }
+
+    #[test]
+    fn reconcile_gap_short_interrupt_defers_catch_up_until_next_allowed_time() {
+        let schedule = Schedule::Interval(IntervalSchedule {
+            every_minutes: 60,
+            anchor_minute_of_day: 540,
+            active_window: Some(LocalTimeWindow {
+                start_minute_of_day: 720,
+                end_minute_of_day: 1020,
+            }),
+        });
+        let now = local_utc(2026, 3, 23, 11, 5);
+        let scheduler_state = SchedulerState {
+            quiet_hours: None,
+            pause_until: None,
+            last_reconciled_at: Some(local_utc(2026, 3, 23, 10, 30)),
+            updated_at: now,
+        };
+
+        let decision = reconcile_effective_next_due(
+            &schedule,
+            true,
+            Some(local_utc(2026, 3, 23, 10, 45)),
+            &scheduler_state,
+            now,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(decision.base_due_at, now);
+        assert_eq!(decision.effective_due_at, local_utc(2026, 3, 23, 12, 0));
+        assert_eq!(decision.next_due_kind, NextDueKind::CatchUp);
+        assert_eq!(decision.runtime_status, ReminderRuntimeStatus::DeferredByActiveWindow);
     }
 }

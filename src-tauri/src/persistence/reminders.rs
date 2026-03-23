@@ -473,10 +473,44 @@ mod tests {
         let listed = repository.list().unwrap();
         assert!(listed[0].next_due_at.is_none());
 
+        let scheduler_state = crate::domain::scheduler::SchedulerState {
+            quiet_hours: None,
+            pause_until: None,
+            last_reconciled_at: Some(Utc::now()),
+            updated_at: Utc::now(),
+        };
         let refreshed = repository
-            .refresh_all(&SchedulerContext::default(), Utc::now())
+            .refresh_all(&scheduler_state, Utc::now())
             .unwrap();
         assert!(refreshed[0].next_due_at.is_some());
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn reconcile_gap_refresh_all_persists_catch_up_metadata() {
+        let path = temp_db_path("reconcile_gap_refresh_all_persists_catch_up_metadata");
+        let repository = ReminderRepository::new(path.clone()).unwrap();
+        let now = Utc::now();
+        let created = repository.save(sample_reminder(None)).unwrap();
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE reminders SET next_due_at = ?1, base_due_at = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![(now - chrono::Duration::minutes(15)).to_rfc3339(), now.to_rfc3339(), created.id],
+        )
+        .unwrap();
+
+        let scheduler_state = crate::domain::scheduler::SchedulerState {
+            quiet_hours: None,
+            pause_until: None,
+            last_reconciled_at: Some(now - chrono::Duration::minutes(30)),
+            updated_at: now,
+        };
+
+        let refreshed = repository.refresh_all(&scheduler_state, now).unwrap();
+
+        assert_eq!(refreshed[0].next_due_kind.as_str(), "catch_up");
 
         let _ = fs::remove_file(path);
     }
