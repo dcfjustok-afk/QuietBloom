@@ -13,6 +13,7 @@ import {
 } from "../form/reminder-form-schema";
 import {
   formatMinutesOfDay,
+  type LocalTimeWindow,
   parseTimeString,
   reminderTypes,
   type FixedTimeSchedule,
@@ -60,6 +61,7 @@ function cloneIntervalSchedule(schedule: IntervalSchedule): IntervalSchedule {
     kind: "interval",
     everyMinutes: schedule.everyMinutes,
     anchorMinuteOfDay: schedule.anchorMinuteOfDay,
+    activeWindow: schedule.activeWindow ? { ...schedule.activeWindow } : null,
   };
 }
 
@@ -68,17 +70,30 @@ function cloneFixedTimeSchedule(schedule: FixedTimeSchedule): FixedTimeSchedule 
     kind: "fixed_time",
     weekdays: [...schedule.weekdays],
     times: [...schedule.times],
+    activeWindow: schedule.activeWindow ? { ...schedule.activeWindow } : null,
   };
 }
 
-function clonePresetInterval(id: (typeof intervalSchedulePresets)[number]["id"]): IntervalSchedule {
+function clonePresetInterval(
+  id: (typeof intervalSchedulePresets)[number]["id"],
+  activeWindow?: LocalTimeWindow | null,
+): IntervalSchedule {
   const preset = intervalSchedulePresets.find((item) => item.id === id) ?? intervalSchedulePresets[2];
-  return cloneIntervalSchedule(preset.schedule);
+  return {
+    ...cloneIntervalSchedule(preset.schedule),
+    activeWindow: activeWindow ?? null,
+  };
 }
 
-function clonePresetFixedTime(id: (typeof fixedTimeSchedulePresets)[number]["id"]): FixedTimeSchedule {
+function clonePresetFixedTime(
+  id: (typeof fixedTimeSchedulePresets)[number]["id"],
+  activeWindow?: LocalTimeWindow | null,
+): FixedTimeSchedule {
   const preset = fixedTimeSchedulePresets.find((item) => item.id === id) ?? fixedTimeSchedulePresets[0];
-  return cloneFixedTimeSchedule(preset.schedule);
+  return {
+    ...cloneFixedTimeSchedule(preset.schedule),
+    activeWindow: activeWindow ?? null,
+  };
 }
 
 function findIntervalPresetId(schedule: IntervalSchedule) {
@@ -124,6 +139,18 @@ function getScheduleErrorMessage(error: unknown): string | null {
 
   if ("anchorMinuteOfDay" in error) {
     return getScheduleErrorMessage(error.anchorMinuteOfDay);
+  }
+
+  if ("activeWindow" in error) {
+    return getScheduleErrorMessage(error.activeWindow);
+  }
+
+  if ("startMinuteOfDay" in error) {
+    return getScheduleErrorMessage(error.startMinuteOfDay);
+  }
+
+  if ("endMinuteOfDay" in error) {
+    return getScheduleErrorMessage(error.endMinuteOfDay);
   }
 
   return null;
@@ -199,39 +226,51 @@ export function ReminderDrawer({ open, reminder, isSaving, onClose, onSave }: Re
       return;
     }
 
+    const activeWindow = values.schedule.activeWindow ?? null;
+
     if (mode === "interval") {
-      setSchedule(clonePresetInterval("every-60"));
+      setSchedule(clonePresetInterval("every-60", activeWindow));
       setShowIntervalAdvanced(false);
       return;
     }
 
-    setSchedule(clonePresetFixedTime("weekdays-1030"));
+    setSchedule(clonePresetFixedTime("weekdays-1030", activeWindow));
     setShowFixedTimeAdvanced(false);
   }
 
   function selectIntervalPreset(id: (typeof intervalSchedulePresets)[number]["id"] | "custom") {
+    const activeWindow = schedule.activeWindow ?? null;
+
     if (id === "custom") {
       setShowIntervalAdvanced(true);
       if (schedule.kind !== "interval") {
-        setSchedule(createCustomIntervalSchedule());
+        setSchedule({
+          ...createCustomIntervalSchedule(),
+          activeWindow,
+        });
       }
       return;
     }
 
-    setSchedule(clonePresetInterval(id));
+    setSchedule(clonePresetInterval(id, activeWindow));
     setShowIntervalAdvanced(false);
   }
 
   function selectFixedTimePreset(id: (typeof fixedTimeSchedulePresets)[number]["id"] | "custom") {
+    const activeWindow = schedule.activeWindow ?? null;
+
     if (id === "custom") {
       setShowFixedTimeAdvanced(true);
       if (schedule.kind !== "fixed_time") {
-        setSchedule(createCustomFixedTimeSchedule());
+        setSchedule({
+          ...createCustomFixedTimeSchedule(),
+          activeWindow,
+        });
       }
       return;
     }
 
-    setSchedule(clonePresetFixedTime(id));
+    setSchedule(clonePresetFixedTime(id, activeWindow));
     setShowFixedTimeAdvanced(false);
   }
 
@@ -298,6 +337,26 @@ export function ReminderDrawer({ open, reminder, isSaving, onClose, onSave }: Re
     setSchedule({
       ...fixedTimeSchedule,
       times: fixedTimeSchedule.times.filter((_, itemIndex) => itemIndex !== index),
+    });
+  }
+
+  function toggleActiveWindow(enabled: boolean) {
+    setSchedule({
+      ...schedule,
+      activeWindow: enabled
+        ? schedule.activeWindow ?? { startMinuteOfDay: 1260, endMinuteOfDay: 360 }
+        : null,
+    });
+  }
+
+  function updateActiveWindow(part: "startMinuteOfDay" | "endMinuteOfDay", value: string) {
+    const activeWindow = schedule.activeWindow ?? { startMinuteOfDay: 1260, endMinuteOfDay: 360 };
+    setSchedule({
+      ...schedule,
+      activeWindow: {
+        ...activeWindow,
+        [part]: parseTimeString(value),
+      },
     });
   }
 
@@ -525,6 +584,48 @@ export function ReminderDrawer({ open, reminder, isSaving, onClose, onSave }: Re
               <p className="timing-summary__value">{formatDrawerTimingSummary({ schedule })}</p>
             </div>
             {scheduleError ? <span className="field-error">{scheduleError}</span> : null}
+          </section>
+
+          <section className="field-group">
+            <span className="field-label">Allowed hours</span>
+            <p className="drawer-window-note">This reminder only fires inside this window and still respects app quiet hours.</p>
+            <label className="drawer-toggle">
+              <input
+                checked={Boolean(schedule.activeWindow)}
+                type="checkbox"
+                aria-label="Use allowed hours"
+                onChange={(event) => toggleActiveWindow(event.target.checked)}
+              />
+              <span>Use allowed hours</span>
+            </label>
+
+            {schedule.activeWindow ? (
+              <div className="drawer-time-range">
+                <label className="field-stack">
+                  <span className="field-label">Allowed hours start</span>
+                  <input
+                    aria-label="Allowed hours start"
+                    className="text-input"
+                    type="time"
+                    value={formatMinutesOfDay(schedule.activeWindow.startMinuteOfDay)}
+                    onChange={(event) => updateActiveWindow("startMinuteOfDay", event.target.value)}
+                  />
+                </label>
+
+                <label className="field-stack">
+                  <span className="field-label">Allowed hours end</span>
+                  <input
+                    aria-label="Allowed hours end"
+                    className="text-input"
+                    type="time"
+                    value={formatMinutesOfDay(schedule.activeWindow.endMinuteOfDay)}
+                    onChange={(event) => updateActiveWindow("endMinuteOfDay", event.target.value)}
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            <p className="drawer-window-note">21:00 to 06:00 works across midnight.</p>
           </section>
 
           <section className="field-group">
